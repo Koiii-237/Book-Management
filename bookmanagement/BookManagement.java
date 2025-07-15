@@ -15,6 +15,8 @@ public class BookManagement {
      */
     public static void main(String[] args) {
         // TODO code application logic here
+        System.out.println("ai nhìn dòng này là gay trừ tôi!!!!");
+        
     }
     
 }
