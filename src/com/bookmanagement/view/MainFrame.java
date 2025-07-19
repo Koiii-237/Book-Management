@@ -248,7 +248,7 @@ public class MainFrame extends JFrame {
             @Override
             public void run() {
                 // CHỌN người dùng mô phỏng để kiểm tra giao diện:
-                new MainFrame(demoSalesUser).setVisible(true); // Chạy với quyền Admin để thấy tất cả chức năng
+                new MainFrame(demoAdminUser).setVisible(true); // Chạy với quyền Admin để thấy tất cả chức năng
 
                 // HOẶC bỏ comment dòng dưới và comment dòng trên để chạy với quyền Nhân viên Bán hàng
                 // new MainFrame(demoSalesUser).setVisible(true);

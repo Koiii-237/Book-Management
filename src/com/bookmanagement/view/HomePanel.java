@@ -26,19 +26,21 @@ public class HomePanel extends javax.swing.JPanel {
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
 
-        javax.swing.GroupLayout layout = new javax.swing.GroupLayout(this);
-        this.setLayout(layout);
-        layout.setHorizontalGroup(
-            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 400, Short.MAX_VALUE)
-        );
-        layout.setVerticalGroup(
-            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 300, Short.MAX_VALUE)
-        );
+        lblWelcome = new javax.swing.JLabel();
+
+        setBackground(new java.awt.Color(255, 255, 255));
+        setForeground(new java.awt.Color(51, 153, 255));
+        setLayout(new java.awt.GridBagLayout());
+
+        lblWelcome.setFont(new java.awt.Font("Arial", 1, 24)); // NOI18N
+        lblWelcome.setForeground(new java.awt.Color(0, 102, 255));
+        lblWelcome.setText("WELCOME TO SYSTEM OF BOOK MANAGEMENT ");
+        lblWelcome.setToolTipText("");
+        add(lblWelcome, new java.awt.GridBagConstraints());
     }// </editor-fold>//GEN-END:initComponents
 
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
+    private javax.swing.JLabel lblWelcome;
     // End of variables declaration//GEN-END:variables
 }

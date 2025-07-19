@@ -17,12 +17,13 @@ public class Main_Interface extends javax.swing.JFrame {
     /**
      * Creates new form Main_Interface
      */
+    CardLayout cardLayout ;
     public Main_Interface() {
         initComponents();
         setLocationRelativeTo(null);
         setSize(1000, 700);
         
-        CardLayout cardLayout = (CardLayout) mainContentPanel.getLayout();
+        cardLayout = (CardLayout) mainContentPanel.getLayout();
 
         // 2. Thêm các Panel chức năng vào mainContentPane
         // Mỗi màn hình chức năng sẽ là một thể hiện của JPanel Form bạn tạo riêng
@@ -107,6 +108,11 @@ public class Main_Interface extends javax.swing.JFrame {
         btnHome.setForeground(new java.awt.Color(51, 51, 51));
         btnHome.setText("HOME");
         btnHome.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
+        btnHome.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                btnHomeActionPerformed(evt);
+            }
+        });
         sidebarPanel.add(btnHome);
 
         btnManagementBooks.setBackground(new java.awt.Color(153, 204, 255));
@@ -164,6 +170,11 @@ public class Main_Interface extends javax.swing.JFrame {
                     login.setVisible(true);
                 }
     }//GEN-LAST:event_btnLogoutActionPerformed
+
+    private void btnHomeActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnHomeActionPerformed
+        // TODO add your handling code here:
+        cardLayout.show(mainContentPanel, "Home");
+    }//GEN-LAST:event_btnHomeActionPerformed
 
     /**
      * @param args the command line arguments

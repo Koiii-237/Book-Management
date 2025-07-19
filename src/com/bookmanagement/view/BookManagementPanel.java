@@ -8,14 +8,58 @@ package com.bookmanagement.view;
  *
  * @author ADMIN
  */
+import javax.swing.JOptionPane;
+import javax.swing.table.DefaultTableModel;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.awt.BorderLayout;
+import java.awt.FlowLayout;
+import javax.swing.JButton;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.JTable;
+import javax.swing.JTextField;
+
+
 public class BookManagementPanel extends javax.swing.JPanel {
 
     /**
      * Creates new form BookPanel
      */
+    
     public BookManagementPanel() {
         initComponents();
+        initTable();
     }
+    
+    public void initTable(){
+        DefaultTableModel tableModel = new DefaultTableModel(
+            new Object[]{"ID BOOK", "AUTHOR", "BOOK NAME", "KIND", "DESCRIPT", "PRICE"}, 0
+        ) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return false;
+            }
+        };
+        tblBook.setModel(tableModel);
+    }
+    
+    public void addBook(){
+        BookEntryDialog dialog = new BookEntryDialog(null, true, null); // true: modal, null: không có dữ liệu để chỉnh sửa
+        dialog.setVisible(true); // Hiển thị dialog
+
+        // Kiểm tra kết quả sau khi dialog đóng
+        if (dialog.isDataSaved()) {
+            JOptionPane.showMessageDialog(this, "Thêm sách mới thành công!");
+             // Tải lại dữ liệu vào bảng để hiển thị sách mới
+        }
+    }
+    
+    public void deleteBook(){
+    
+    }
+    
 
     /**
      * This method is called from within the constructor to initialize the form.
@@ -26,19 +70,99 @@ public class BookManagementPanel extends javax.swing.JPanel {
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
 
-        javax.swing.GroupLayout layout = new javax.swing.GroupLayout(this);
-        this.setLayout(layout);
-        layout.setHorizontalGroup(
-            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 400, Short.MAX_VALUE)
-        );
-        layout.setVerticalGroup(
-            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 300, Short.MAX_VALUE)
-        );
+        pnToolbar = new javax.swing.JPanel();
+        lblSearch = new javax.swing.JLabel();
+        txtSearch = new javax.swing.JTextField();
+        btnSearch = new javax.swing.JToggleButton();
+        jSeparator1 = new javax.swing.JSeparator();
+        btnAdd = new javax.swing.JToggleButton();
+        btnDelete = new javax.swing.JToggleButton();
+        btnUpdate = new javax.swing.JToggleButton();
+        btnRefresh = new javax.swing.JToggleButton();
+        spBookTable = new javax.swing.JScrollPane();
+        tblBook = new javax.swing.JTable();
+
+        setLayout(new java.awt.BorderLayout());
+
+        lblSearch.setText("Search: ");
+        pnToolbar.add(lblSearch);
+
+        txtSearch.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                txtSearchActionPerformed(evt);
+            }
+        });
+        pnToolbar.add(txtSearch);
+
+        btnSearch.setText("Search");
+        pnToolbar.add(btnSearch);
+
+        jSeparator1.setOrientation(javax.swing.SwingConstants.VERTICAL);
+        pnToolbar.add(jSeparator1);
+
+        btnAdd.setText("Add");
+        pnToolbar.add(btnAdd);
+
+        btnDelete.setText("Delete");
+        pnToolbar.add(btnDelete);
+
+        btnUpdate.setText("Update");
+        pnToolbar.add(btnUpdate);
+
+        btnRefresh.setText("Refresh");
+        pnToolbar.add(btnRefresh);
+
+        add(pnToolbar, java.awt.BorderLayout.PAGE_START);
+
+        tblBook.setModel(new javax.swing.table.DefaultTableModel(
+            new Object [][] {
+                {null, null, null, null},
+                {null, null, null, null},
+                {null, null, null, null},
+                {null, null, null, null}
+            },
+            new String [] {
+                "Title 1", "Title 2", "Title 3", "Title 4"
+            }
+        ));
+        tblBook.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                tblBookMouseClicked(evt);
+            }
+        });
+        spBookTable.setViewportView(tblBook);
+
+        add(spBookTable, java.awt.BorderLayout.CENTER);
     }// </editor-fold>//GEN-END:initComponents
+
+    private void txtSearchActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_txtSearchActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_txtSearchActionPerformed
+
+    private void tblBookMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_tblBookMouseClicked
+        // TODO add your handling code here:
+        if(tblBook.getSelectedRow() != -1){
+            btnUpdate.setEnabled(true);
+            btnDelete.setEnabled(true);
+        }
+        else{
+            btnUpdate.setEnabled(false);
+            btnDelete.setEnabled(false);
+        }
+    }//GEN-LAST:event_tblBookMouseClicked
 
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
+    private javax.swing.JToggleButton btnAdd;
+    private javax.swing.JToggleButton btnDelete;
+    private javax.swing.JToggleButton btnRefresh;
+    private javax.swing.JToggleButton btnSearch;
+    private javax.swing.JToggleButton btnUpdate;
+    private javax.swing.JSeparator jSeparator1;
+    private javax.swing.JLabel lblSearch;
+    private javax.swing.JPanel pnToolbar;
+    private javax.swing.JScrollPane spBookTable;
+    private javax.swing.JTable tblBook;
+    private javax.swing.JTextField txtSearch;
     // End of variables declaration//GEN-END:variables
 }
