@@ -26,19 +26,97 @@ public class InventoryManagementPanel extends javax.swing.JPanel {
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
 
-        javax.swing.GroupLayout layout = new javax.swing.GroupLayout(this);
-        this.setLayout(layout);
-        layout.setHorizontalGroup(
-            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 876, Short.MAX_VALUE)
-        );
-        layout.setVerticalGroup(
-            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 621, Short.MAX_VALUE)
-        );
+        pnTop = new javax.swing.JPanel();
+        pnToolbar = new javax.swing.JPanel();
+        lblSearch = new javax.swing.JLabel();
+        txtSearch = new javax.swing.JTextField();
+        btnTimKiem = new javax.swing.JToggleButton();
+        jSeparator1 = new javax.swing.JSeparator();
+        btnNhapHang = new javax.swing.JToggleButton();
+        btnKiemKho = new javax.swing.JToggleButton();
+        btnLamMoi = new javax.swing.JToggleButton();
+        spBookTable = new javax.swing.JScrollPane();
+        tblBook = new javax.swing.JTable();
+
+        setLayout(new java.awt.BorderLayout());
+        add(pnTop, java.awt.BorderLayout.PAGE_START);
+
+        lblSearch.setText("Search: ");
+        pnToolbar.add(lblSearch);
+
+        txtSearch.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                txtSearchActionPerformed(evt);
+            }
+        });
+        pnToolbar.add(txtSearch);
+
+        btnTimKiem.setText("Tìm Kiếm");
+        pnToolbar.add(btnTimKiem);
+
+        jSeparator1.setOrientation(javax.swing.SwingConstants.VERTICAL);
+        pnToolbar.add(jSeparator1);
+
+        btnNhapHang.setText("Nhập Hàng");
+        pnToolbar.add(btnNhapHang);
+
+        btnKiemKho.setText("Kiểm Kho");
+        pnToolbar.add(btnKiemKho);
+
+        btnLamMoi.setText("Làm Mới");
+        pnToolbar.add(btnLamMoi);
+
+        add(pnToolbar, java.awt.BorderLayout.PAGE_START);
+
+        tblBook.setModel(new javax.swing.table.DefaultTableModel(
+            new Object [][] {
+                {null, null, null, null},
+                {null, null, null, null},
+                {null, null, null, null},
+                {null, null, null, null}
+            },
+            new String [] {
+                "Title 1", "Title 2", "Title 3", "Title 4"
+            }
+        ));
+        tblBook.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                tblBookMouseClicked(evt);
+            }
+        });
+        spBookTable.setViewportView(tblBook);
+
+        add(spBookTable, java.awt.BorderLayout.CENTER);
     }// </editor-fold>//GEN-END:initComponents
+
+    private void txtSearchActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_txtSearchActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_txtSearchActionPerformed
+
+    private void tblBookMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_tblBookMouseClicked
+        // TODO add your handling code here:
+        if(tblBook.getSelectedRow() != -1){
+            btnUpdate.setEnabled(true);
+            btnKiemKho.setEnabled(true);
+        }
+        else{
+            btnUpdate.setEnabled(false);
+            btnKiemKho.setEnabled(false);
+        }
+    }//GEN-LAST:event_tblBookMouseClicked
 
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
+    private javax.swing.JToggleButton btnKiemKho;
+    private javax.swing.JToggleButton btnLamMoi;
+    private javax.swing.JToggleButton btnNhapHang;
+    private javax.swing.JToggleButton btnTimKiem;
+    private javax.swing.JSeparator jSeparator1;
+    private javax.swing.JLabel lblSearch;
+    private javax.swing.JPanel pnToolbar;
+    private javax.swing.JPanel pnTop;
+    private javax.swing.JScrollPane spBookTable;
+    private javax.swing.JTable tblBook;
+    private javax.swing.JTextField txtSearch;
     // End of variables declaration//GEN-END:variables
 }

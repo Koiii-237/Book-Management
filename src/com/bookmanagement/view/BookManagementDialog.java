@@ -27,21 +27,118 @@ public class BookManagementDialog extends javax.swing.JDialog {
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
 
+        pnTop = new javax.swing.JPanel();
+        pnToolbar = new javax.swing.JPanel();
+        lblSearch = new javax.swing.JLabel();
+        txtSearch = new javax.swing.JTextField();
+        btnTimKiem = new javax.swing.JToggleButton();
+        jSeparator1 = new javax.swing.JSeparator();
+        btnNhapHang = new javax.swing.JToggleButton();
+        btnKiemKho = new javax.swing.JToggleButton();
+        btnLamMoi = new javax.swing.JToggleButton();
+        tblBang = new javax.swing.JScrollPane();
+        tblBook = new javax.swing.JTable();
+
         setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
+
+        lblSearch.setText("Search: ");
+        pnToolbar.add(lblSearch);
+
+        txtSearch.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                txtSearchActionPerformed(evt);
+            }
+        });
+        pnToolbar.add(txtSearch);
+
+        btnTimKiem.setText("Tìm Kiếm");
+        btnTimKiem.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                btnTimKiemActionPerformed(evt);
+            }
+        });
+        pnToolbar.add(btnTimKiem);
+
+        jSeparator1.setOrientation(javax.swing.SwingConstants.VERTICAL);
+        pnToolbar.add(jSeparator1);
+
+        btnNhapHang.setText("Nhập Hàng");
+        pnToolbar.add(btnNhapHang);
+
+        btnKiemKho.setText("Kiểm Kho");
+        pnToolbar.add(btnKiemKho);
+
+        btnLamMoi.setText("Làm Mới");
+        pnToolbar.add(btnLamMoi);
+
+        tblBook.setModel(new javax.swing.table.DefaultTableModel(
+            new Object [][] {
+                {null, null, null, null},
+                {null, null, null, null},
+                {null, null, null, null},
+                {null, null, null, null}
+            },
+            new String [] {
+                "Title 1", "Title 2", "Title 3", "Title 4"
+            }
+        ));
+        tblBook.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                tblBookMouseClicked(evt);
+            }
+        });
+        tblBang.setViewportView(tblBook);
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 400, Short.MAX_VALUE)
+            .addGap(0, 894, Short.MAX_VALUE)
+            .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                .addGroup(layout.createSequentialGroup()
+                    .addGap(0, 0, Short.MAX_VALUE)
+                    .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addComponent(pnToolbar, javax.swing.GroupLayout.PREFERRED_SIZE, 876, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addComponent(pnTop, javax.swing.GroupLayout.PREFERRED_SIZE, 876, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addComponent(tblBang, javax.swing.GroupLayout.PREFERRED_SIZE, 876, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addGap(0, 0, Short.MAX_VALUE)))
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 300, Short.MAX_VALUE)
+            .addGap(0, 205, Short.MAX_VALUE)
+            .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                .addGroup(layout.createSequentialGroup()
+                    .addGap(0, 0, Short.MAX_VALUE)
+                    .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addComponent(pnToolbar, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addComponent(pnTop, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                    .addComponent(tblBang, javax.swing.GroupLayout.PREFERRED_SIZE, 142, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addGap(0, 21, Short.MAX_VALUE)))
         );
 
         pack();
     }// </editor-fold>//GEN-END:initComponents
+
+    private void txtSearchActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_txtSearchActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_txtSearchActionPerformed
+
+    private void tblBookMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_tblBookMouseClicked
+        // TODO add your handling code here:
+        if(tblBook.getSelectedRow() != -1){
+            btnUpdate.setEnabled(true);
+            btnKiemKho.setEnabled(true);
+        }
+        else{
+            btnUpdate.setEnabled(false);
+            btnKiemKho.setEnabled(false);
+        }
+    }//GEN-LAST:event_tblBookMouseClicked
+
+    private void btnTimKiemActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnTimKiemActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_btnTimKiemActionPerformed
 
     /**
      * @param args the command line arguments
@@ -86,5 +183,16 @@ public class BookManagementDialog extends javax.swing.JDialog {
     }
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
+    private javax.swing.JToggleButton btnKiemKho;
+    private javax.swing.JToggleButton btnLamMoi;
+    private javax.swing.JToggleButton btnNhapHang;
+    private javax.swing.JToggleButton btnTimKiem;
+    private javax.swing.JSeparator jSeparator1;
+    private javax.swing.JLabel lblSearch;
+    private javax.swing.JPanel pnToolbar;
+    private javax.swing.JPanel pnTop;
+    private javax.swing.JScrollPane tblBang;
+    private javax.swing.JTable tblBook;
+    private javax.swing.JTextField txtSearch;
     // End of variables declaration//GEN-END:variables
 }
