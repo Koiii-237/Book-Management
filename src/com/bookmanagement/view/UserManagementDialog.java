@@ -15,7 +15,7 @@ import javax.swing.JOptionPane;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-public class BookManagementDialog extends javax.swing.JDialog {
+public class UserManagementDialog extends javax.swing.JDialog {
 
     /**
      * Creates new form BookManagementDialog
@@ -31,33 +31,28 @@ public class BookManagementDialog extends javax.swing.JDialog {
      * @param modal
      * @param bookId
      */
-    public BookManagementDialog(java.awt.Frame parent, boolean modal, Book book) {
+    public UserManagementDialog(java.awt.Frame parent, boolean modal, Book book) {
         super(parent, modal);
         this.bookDAO = new BookManagementDAO();
         this.currentBook = book;
         initComponents();
         setLocationRelativeTo(parent);
-        this.setTitle("ADD BOOK AND UPDATE BOOK");
-        
         
         
         if (currentBook == null) {
             // Chế độ Thêm mới: Đặt tiêu đề và xóa trắng các trường
             setTitle("ADD NEW BOOK!");
-            setSize(500, 300);
             clearForm();
-            txtBookID.setToolTipText("Leave blanks if you want the system to generate code");
-            txtBookID.setEditable(true);
+            txtBookID.setEditable(false);
         } else {
             // Chế độ Chỉnh sửa: Đặt tiêu đề và tải dữ liệu sách vào form
-            setTitle("UPDATE INFORMATION OF BOOK");
-            setSize(500, 300);
+            setTitle("UPDATE INFOR OF BOOK");
             loadBookDetails(currentBook);
             txtBookID.setEditable(false);
 
         }
-    }    
-    
+    }
+
     private void loadBookDetails(Book book) {
         if (book != null) {
             txtBookID.setText(book.getBookID());
@@ -81,6 +76,7 @@ public class BookManagementDialog extends javax.swing.JDialog {
 
     public void save() {
         // 1. Lấy dữ liệu từ các trường nhập liệu
+        String id = txtBookID.getText().trim();
         String name = txtBookName.getText().trim();
         String author = txtAuthor.getText().trim();
         String kind = txtKind.getText().trim();
@@ -133,7 +129,7 @@ public class BookManagementDialog extends javax.swing.JDialog {
         } catch (NumberFormatException ex) {
             JOptionPane.showMessageDialog(this, "Price and quantity must be valid numbers.", "NOTIFICATION!", JOptionPane.ERROR_MESSAGE);
         } catch (Exception ex) {
-            Logger.getLogger(BookManagementDialog.class.getName()).log(Level.SEVERE, "Lỗi khi lưu dữ liệu sách", ex);
+            Logger.getLogger(UserManagementDialog.class.getName()).log(Level.SEVERE, "Lỗi khi lưu dữ liệu sách", ex);
             JOptionPane.showMessageDialog(this, "ERROR: " + ex.getMessage(), "NOTIFICATION!", JOptionPane.ERROR_MESSAGE);
             ex.printStackTrace();
         }
@@ -176,9 +172,8 @@ public class BookManagementDialog extends javax.swing.JDialog {
         btnCancel = new javax.swing.JButton();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
-        setMinimumSize(new java.awt.Dimension(200, 300));
+        setTitle("Add and delete book");
         setModal(true);
-        setSize(new java.awt.Dimension(800, 500));
 
         formPanel.setBorder(javax.swing.BorderFactory.createEmptyBorder(1, 1, 1, 1));
         formPanel.setLayout(new java.awt.GridBagLayout());
@@ -366,20 +361,21 @@ public class BookManagementDialog extends javax.swing.JDialog {
                 }
             }
         } catch (ClassNotFoundException ex) {
-            java.util.logging.Logger.getLogger(BookManagementDialog.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
+            java.util.logging.Logger.getLogger(UserManagementDialog.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
         } catch (InstantiationException ex) {
-            java.util.logging.Logger.getLogger(BookManagementDialog.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
+            java.util.logging.Logger.getLogger(UserManagementDialog.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
         } catch (IllegalAccessException ex) {
-            java.util.logging.Logger.getLogger(BookManagementDialog.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
+            java.util.logging.Logger.getLogger(UserManagementDialog.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
         } catch (javax.swing.UnsupportedLookAndFeelException ex) {
-            java.util.logging.Logger.getLogger(BookManagementDialog.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
+            java.util.logging.Logger.getLogger(UserManagementDialog.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
         }
+        //</editor-fold>
         //</editor-fold>
 
         /* Create and display the dialog */
         java.awt.EventQueue.invokeLater(new Runnable() {
             public void run() {
-                BookManagementDialog dialog = new BookManagementDialog(new javax.swing.JFrame(), true, null);
+                UserManagementDialog dialog = new UserManagementDialog(new javax.swing.JFrame(), true, null);
                 dialog.addWindowListener(new java.awt.event.WindowAdapter() {
                     @Override
                     public void windowClosing(java.awt.event.WindowEvent e) {

@@ -4,25 +4,51 @@
  */
 package com.bookmanagement.view;
 
+import com.bookmanagement.Dao.UserDAO;
+import com.bookmanagement.model.User;
+import com.bookmanagement.model.UserSession;
+import com.bookmanagement.view.BookManagementPanel;
+import com.bookmanagement.view.CustomerManagementPanel;
+import com.bookmanagement.view.HomePanel;
+import com.bookmanagement.view.InventoryManagementPanel;
+import com.bookmanagement.view.Login;
+import com.bookmanagement.view.OrderManagementPanel;
+import com.bookmanagement.view.UserManagementPanel;
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
+import java.awt.Font;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
+import java.util.List;
+import java.util.Set;
+import javax.swing.BorderFactory;
+import javax.swing.JLabel;
+import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.JTabbedPane;
+import javax.swing.SwingConstants;
 
 /**
  *
  * @author ADMIN
  */
 public class Main_Interface extends javax.swing.JFrame {
-    
+
     /**
      * Creates new form Main_Interface
      */
-    CardLayout cardLayout ;
+    CardLayout cardLayout;
+
+    private UserSession currentSession;
+
     public Main_Interface() {
         initComponents();
         setLocationRelativeTo(null);
-        setSize(1000, 700);
-        
+        setSize(1200, 700);
+
         cardLayout = (CardLayout) mainContentPanel.getLayout();
 
         // 2. Thêm các Panel chức năng vào mainContentPane
@@ -36,14 +62,50 @@ public class Main_Interface extends javax.swing.JFrame {
 
         // 3. Gắn ActionListener cho các nút Sidebar
         btnHome.addActionListener(e -> cardLayout.show(mainContentPanel, "Home"));
-        btnManagementBooks.addActionListener(e -> cardLayout.show(mainContentPanel, "BookManagement"));
-        btnManagementInventory.addActionListener(e -> cardLayout.show(mainContentPanel, "InventoryManagement"));
-        btnManagementCustomers.addActionListener(e -> cardLayout.show(mainContentPanel, "CustomerManagement"));
-        btnManagementOrders.addActionListener(e -> cardLayout.show(mainContentPanel, "OrderManagement"));
-        btnManagementUsers.addActionListener(e -> cardLayout.show(mainContentPanel, "UserManagement"));
-        
+        btnBook.addActionListener(e -> cardLayout.show(mainContentPanel, "BookManagement"));
+        btnInventory.addActionListener(e -> cardLayout.show(mainContentPanel, "InventoryManagement"));
+        btnCustomer.addActionListener(e -> cardLayout.show(mainContentPanel, "CustomerManagement"));
+        btnOrder.addActionListener(e -> cardLayout.show(mainContentPanel, "OrderManagement"));
+        btnUser.addActionListener(e -> cardLayout.show(mainContentPanel, "UserManagement"));
+
         // 5. Hiển thị màn hình "Trang Chủ" mặc định khi khởi động
         cardLayout.show(mainContentPanel, "Home");
+
+    }
+
+    private void applyPermissions() {
+        if (currentSession == null) {
+            return;
+        }
+
+        List<String> permissions = currentSession.getPermissions();
+
+        // Map quyền mã sang mô tả
+        boolean canManageBook = permissions.contains("PERM001"); // QUANLY_SACH
+        boolean canManageInventory = permissions.contains("PERM002"); // QUANLY_KHO
+        boolean canPrintCustomer = permissions.contains("PERM003"); // QUANLY_KHACHHANG
+        boolean canCreateOrder = permissions.contains("PERM004"); // TAO_DONHANG
+        boolean canManageOrder = permissions.contains("PERM005"); // QUANLY_DONHANG
+        boolean canManagePrint = permissions.contains("PERM006"); // IN_HOADON
+        boolean canManageUser = permissions.contains("PERM007"); // QUANLY_NGUOIDUNG
+
+        btnCustomer.setVisible(canPrintCustomer);
+        btnOrder.setVisible(canManageOrder || canCreateOrder || canManagePrint);
+        btnInventory.setVisible(canManageInventory);
+        btnBook.setVisible(canManageBook);
+        btnUser.setVisible(canManageUser);
+    }
+
+    private void logout() {
+        this.dispose();
+        java.awt.EventQueue.invokeLater(() -> new Login().setVisible(true));
+    }
+
+    public void setSessionAndPermissions(UserSession session) {
+        this.currentSession = session;
+        lblWelcomeUser.setText("Welcome: " + session.getUser().getUserName());
+
+        applyPermissions();
     }
 
     /**
@@ -61,17 +123,18 @@ public class Main_Interface extends javax.swing.JFrame {
         lblWelcomeUser = new javax.swing.JLabel();
         btnLogout = new javax.swing.JToggleButton();
         sidebarPanel = new javax.swing.JPanel();
-        btnHome = new javax.swing.JToggleButton();
-        btnManagementBooks = new javax.swing.JToggleButton();
-        btnManagementInventory = new javax.swing.JToggleButton();
-        btnManagementCustomers = new javax.swing.JToggleButton();
-        btnManagementOrders = new javax.swing.JToggleButton();
-        btnManagementUsers = new javax.swing.JToggleButton();
+        btnHome = new javax.swing.JButton();
+        btnBook = new javax.swing.JButton();
+        btnCustomer = new javax.swing.JButton();
+        btnInventory = new javax.swing.JButton();
+        btnOrder = new javax.swing.JButton();
+        btnUser = new javax.swing.JButton();
         mainContentPanel = new javax.swing.JPanel();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
         setTitle("BOOK MANAGEMENT");
         setAlwaysOnTop(true);
+        setMinimumSize(new java.awt.Dimension(800, 500));
 
         headerPanel.setBackground(new java.awt.Color(0, 153, 204));
         headerPanel.setLayout(new java.awt.BorderLayout());
@@ -101,12 +164,13 @@ public class Main_Interface extends javax.swing.JFrame {
 
         sidebarPanel.setBackground(new java.awt.Color(204, 255, 255));
         sidebarPanel.setPreferredSize(new java.awt.Dimension(250, 586));
-        sidebarPanel.setLayout(new java.awt.GridLayout(0, 1, 0, 10));
+        sidebarPanel.setLayout(new java.awt.GridLayout(0, 1));
 
         btnHome.setBackground(new java.awt.Color(153, 204, 255));
         btnHome.setFont(new java.awt.Font("Arial", 1, 16)); // NOI18N
-        btnHome.setForeground(new java.awt.Color(51, 51, 51));
+        btnHome.setForeground(new java.awt.Color(0, 0, 0));
         btnHome.setText("HOME");
+        btnHome.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(102, 102, 102)));
         btnHome.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
         btnHome.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -115,40 +179,71 @@ public class Main_Interface extends javax.swing.JFrame {
         });
         sidebarPanel.add(btnHome);
 
-        btnManagementBooks.setBackground(new java.awt.Color(153, 204, 255));
-        btnManagementBooks.setFont(new java.awt.Font("Arial", 1, 16)); // NOI18N
-        btnManagementBooks.setForeground(new java.awt.Color(51, 51, 51));
-        btnManagementBooks.setText("BOOK MANAGEMENT");
-        btnManagementBooks.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
-        sidebarPanel.add(btnManagementBooks);
+        btnBook.setBackground(new java.awt.Color(153, 204, 255));
+        btnBook.setFont(new java.awt.Font("Arial", 1, 16)); // NOI18N
+        btnBook.setForeground(new java.awt.Color(0, 0, 0));
+        btnBook.setText("BOOK MANAGEMENT");
+        btnBook.setAlignmentY(0.0F);
+        btnBook.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(102, 102, 102)));
+        btnBook.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
+        btnBook.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                btnBookActionPerformed(evt);
+            }
+        });
+        sidebarPanel.add(btnBook);
 
-        btnManagementInventory.setBackground(new java.awt.Color(153, 204, 255));
-        btnManagementInventory.setFont(new java.awt.Font("Arial", 1, 16)); // NOI18N
-        btnManagementInventory.setForeground(new java.awt.Color(51, 51, 51));
-        btnManagementInventory.setText("INVENTORY MANAGEMENT");
-        btnManagementInventory.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
-        sidebarPanel.add(btnManagementInventory);
+        btnCustomer.setBackground(new java.awt.Color(153, 204, 255));
+        btnCustomer.setFont(new java.awt.Font("Arial", 1, 16)); // NOI18N
+        btnCustomer.setForeground(new java.awt.Color(0, 0, 0));
+        btnCustomer.setText("CUSTOMER MANAGEMENT");
+        btnCustomer.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(102, 102, 102)));
+        btnCustomer.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
+        btnCustomer.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                btnCustomerActionPerformed(evt);
+            }
+        });
+        sidebarPanel.add(btnCustomer);
 
-        btnManagementCustomers.setBackground(new java.awt.Color(153, 204, 255));
-        btnManagementCustomers.setFont(new java.awt.Font("Arial", 1, 16)); // NOI18N
-        btnManagementCustomers.setForeground(new java.awt.Color(51, 51, 51));
-        btnManagementCustomers.setText("CUSTOMER MANAGEMENT");
-        btnManagementCustomers.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
-        sidebarPanel.add(btnManagementCustomers);
+        btnInventory.setBackground(new java.awt.Color(153, 204, 255));
+        btnInventory.setFont(new java.awt.Font("Arial", 1, 16)); // NOI18N
+        btnInventory.setForeground(new java.awt.Color(0, 0, 0));
+        btnInventory.setText("INVENTORY MANAGEMENT");
+        btnInventory.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(102, 102, 102)));
+        btnInventory.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
+        btnInventory.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                btnInventoryActionPerformed(evt);
+            }
+        });
+        sidebarPanel.add(btnInventory);
 
-        btnManagementOrders.setBackground(new java.awt.Color(153, 204, 255));
-        btnManagementOrders.setFont(new java.awt.Font("Arial", 1, 16)); // NOI18N
-        btnManagementOrders.setForeground(new java.awt.Color(51, 51, 51));
-        btnManagementOrders.setText("ORDER MANAGEMENT");
-        btnManagementOrders.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
-        sidebarPanel.add(btnManagementOrders);
+        btnOrder.setBackground(new java.awt.Color(153, 204, 255));
+        btnOrder.setFont(new java.awt.Font("Arial", 1, 16)); // NOI18N
+        btnOrder.setForeground(new java.awt.Color(0, 0, 0));
+        btnOrder.setText("ORDER MANAGEMENT");
+        btnOrder.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(102, 102, 102)));
+        btnOrder.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
+        btnOrder.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                btnOrderActionPerformed(evt);
+            }
+        });
+        sidebarPanel.add(btnOrder);
 
-        btnManagementUsers.setBackground(new java.awt.Color(153, 204, 255));
-        btnManagementUsers.setFont(new java.awt.Font("Arial", 1, 16)); // NOI18N
-        btnManagementUsers.setForeground(new java.awt.Color(51, 51, 51));
-        btnManagementUsers.setText("USER MANAGEMENT");
-        btnManagementUsers.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
-        sidebarPanel.add(btnManagementUsers);
+        btnUser.setBackground(new java.awt.Color(153, 204, 255));
+        btnUser.setFont(new java.awt.Font("Arial", 1, 16)); // NOI18N
+        btnUser.setForeground(new java.awt.Color(0, 0, 0));
+        btnUser.setText("USER MANAGEMENT");
+        btnUser.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(102, 102, 102)));
+        btnUser.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
+        btnUser.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                btnUserActionPerformed(evt);
+            }
+        });
+        sidebarPanel.add(btnUser);
 
         getContentPane().add(sidebarPanel, java.awt.BorderLayout.LINE_START);
 
@@ -161,20 +256,32 @@ public class Main_Interface extends javax.swing.JFrame {
 
     private void btnLogoutActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnLogoutActionPerformed
         // TODO add your handling code here:
-        Login login = new Login();
-        int confirm = JOptionPane.showConfirmDialog(this,
-                                "Bạn có chắc chắn muốn đăng xuất?", "Xác nhận đăng xuất",
-                                JOptionPane.YES_NO_OPTION);
-                if (confirm == JOptionPane.YES_OPTION) {
-                    dispose(); // Đóng cửa sổ MainFrame
-                    login.setVisible(true);
-                }
+        logout();
     }//GEN-LAST:event_btnLogoutActionPerformed
 
     private void btnHomeActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnHomeActionPerformed
         // TODO add your handling code here:
-        cardLayout.show(mainContentPanel, "Home");
     }//GEN-LAST:event_btnHomeActionPerformed
+
+    private void btnBookActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnBookActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_btnBookActionPerformed
+
+    private void btnCustomerActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnCustomerActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_btnCustomerActionPerformed
+
+    private void btnInventoryActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnInventoryActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_btnInventoryActionPerformed
+
+    private void btnOrderActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnOrderActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_btnOrderActionPerformed
+
+    private void btnUserActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnUserActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_btnUserActionPerformed
 
     /**
      * @param args the command line arguments
@@ -212,13 +319,13 @@ public class Main_Interface extends javax.swing.JFrame {
     }
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
-    private javax.swing.JToggleButton btnHome;
+    private javax.swing.JButton btnBook;
+    private javax.swing.JButton btnCustomer;
+    private javax.swing.JButton btnHome;
+    private javax.swing.JButton btnInventory;
     private javax.swing.JToggleButton btnLogout;
-    private javax.swing.JToggleButton btnManagementBooks;
-    private javax.swing.JToggleButton btnManagementCustomers;
-    private javax.swing.JToggleButton btnManagementInventory;
-    private javax.swing.JToggleButton btnManagementOrders;
-    private javax.swing.JToggleButton btnManagementUsers;
+    private javax.swing.JButton btnOrder;
+    private javax.swing.JButton btnUser;
     private javax.swing.JPanel headerPanel;
     private javax.swing.JLabel jLabel1;
     private javax.swing.JLabel lblWelcomeUser;

@@ -4,6 +4,17 @@
  */
 package com.bookmanagement.view;
 
+import com.bookmanagement.service.AuthService;
+import com.bookmanagement.Dao.UserDAO;
+import com.bookmanagement.model.User;
+import com.bookmanagement.model.UserSession;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import javax.swing.JFrame;
+import javax.swing.JOptionPane;
+import javax.swing.UIManager;
+import com.bookmanagement.service.AuthService;
+
 /**
  *
  * @author ADMIN
@@ -13,10 +24,47 @@ public class Login extends javax.swing.JFrame {
     /**
      * Creates new form Login
      */
+    private User user;
     public Login() {
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setTitle("LOGIN TO SYSTEM BOOK MANAGEMENT");
+        setSize(800, 600);
         initComponents();
+        setLocationRelativeTo(null);
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+
+        try {
+            for (UIManager.LookAndFeelInfo info : UIManager.getInstalledLookAndFeels()) {
+                if ("Nimbus".equals(info.getName())) {
+                    UIManager.setLookAndFeel(info.getClassName());
+                    break;
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Không thể thiết lập Nimbus Look and Feel: " + e.getMessage());
+        }
+        
     }
 
+    
+    private void performLogin() {
+    String username = txtUserName.getText().trim();
+    String password = new String(txtPassword.getPassword());
+    
+    // Kiểm tra login (giả sử login thành công)
+    UserSession session = AuthService.login(username, password); // Hoặc code tự tạo UserSession
+
+    if (session != null) {
+        Main_Interface main = new Main_Interface();
+        main.setSessionAndPermissions(session);
+        main.setVisible(true);
+        this.dispose();
+    } else {
+        JOptionPane.showMessageDialog(this, "Sai tên đăng nhập hoặc mật khẩu");
+    }
+}
+
+    
     /**
      * This method is called from within the constructor to initialize the form.
      * WARNING: Do NOT modify this code. The content of this method is always
@@ -25,22 +73,104 @@ public class Login extends javax.swing.JFrame {
     @SuppressWarnings("unchecked")
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
+        java.awt.GridBagConstraints gridBagConstraints;
+
+        pnLogin = new javax.swing.JPanel();
+        txtPassword = new javax.swing.JPasswordField();
+        btnLogin = new javax.swing.JButton();
+        txtUserName = new javax.swing.JTextField();
+        lblDisplayResult = new javax.swing.JLabel();
+        lblTitle = new javax.swing.JLabel();
+        lblPassword = new javax.swing.JLabel();
+        lblUserName = new javax.swing.JLabel();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
+        setTitle("LOGIN");
+        setMinimumSize(new java.awt.Dimension(800, 600));
+        setResizable(false);
 
-        javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
-        getContentPane().setLayout(layout);
-        layout.setHorizontalGroup(
-            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 400, Short.MAX_VALUE)
-        );
-        layout.setVerticalGroup(
-            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 300, Short.MAX_VALUE)
-        );
+        pnLogin.setBorder(javax.swing.BorderFactory.createEmptyBorder(25, 25, 25, 25));
+        pnLogin.setLayout(new java.awt.GridBagLayout());
+        gridBagConstraints = new java.awt.GridBagConstraints();
+        gridBagConstraints.gridx = 1;
+        gridBagConstraints.gridy = 2;
+        gridBagConstraints.fill = java.awt.GridBagConstraints.HORIZONTAL;
+        gridBagConstraints.weightx = 1.0;
+        gridBagConstraints.insets = new java.awt.Insets(10, 10, 10, 10);
+        pnLogin.add(txtPassword, gridBagConstraints);
+
+        btnLogin.setText("LOGIN");
+        btnLogin.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                btnLoginActionPerformed(evt);
+            }
+        });
+        gridBagConstraints = new java.awt.GridBagConstraints();
+        gridBagConstraints.gridx = 0;
+        gridBagConstraints.gridy = 3;
+        gridBagConstraints.gridwidth = 2;
+        gridBagConstraints.insets = new java.awt.Insets(10, 10, 10, 10);
+        pnLogin.add(btnLogin, gridBagConstraints);
+
+        txtUserName.setColumns(20);
+        gridBagConstraints = new java.awt.GridBagConstraints();
+        gridBagConstraints.gridx = 1;
+        gridBagConstraints.gridy = 1;
+        gridBagConstraints.fill = java.awt.GridBagConstraints.HORIZONTAL;
+        gridBagConstraints.weightx = 1.0;
+        gridBagConstraints.insets = new java.awt.Insets(10, 10, 10, 10);
+        pnLogin.add(txtUserName, gridBagConstraints);
+
+        lblDisplayResult.setForeground(new java.awt.Color(255, 0, 0));
+        lblDisplayResult.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+        gridBagConstraints = new java.awt.GridBagConstraints();
+        gridBagConstraints.gridx = 0;
+        gridBagConstraints.gridy = 4;
+        gridBagConstraints.gridwidth = 2;
+        gridBagConstraints.fill = java.awt.GridBagConstraints.HORIZONTAL;
+        gridBagConstraints.anchor = java.awt.GridBagConstraints.NORTHWEST;
+        gridBagConstraints.weightx = 1.0;
+        gridBagConstraints.insets = new java.awt.Insets(10, 10, 10, 10);
+        pnLogin.add(lblDisplayResult, gridBagConstraints);
+
+        lblTitle.setFont(new java.awt.Font("Arial", 1, 24)); // NOI18N
+        lblTitle.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+        lblTitle.setText("LOGIN TO SYSTEM");
+        gridBagConstraints = new java.awt.GridBagConstraints();
+        gridBagConstraints.gridx = 0;
+        gridBagConstraints.gridy = 0;
+        gridBagConstraints.gridwidth = 2;
+        gridBagConstraints.fill = java.awt.GridBagConstraints.HORIZONTAL;
+        gridBagConstraints.insets = new java.awt.Insets(0, 0, 25, 0);
+        pnLogin.add(lblTitle, gridBagConstraints);
+
+        lblPassword.setFont(new java.awt.Font("Arial", 0, 16)); // NOI18N
+        lblPassword.setText("PASSWORD: ");
+        gridBagConstraints = new java.awt.GridBagConstraints();
+        gridBagConstraints.gridx = 0;
+        gridBagConstraints.gridy = 2;
+        gridBagConstraints.anchor = java.awt.GridBagConstraints.EAST;
+        gridBagConstraints.insets = new java.awt.Insets(10, 10, 10, 10);
+        pnLogin.add(lblPassword, gridBagConstraints);
+
+        lblUserName.setFont(new java.awt.Font("Arial", 0, 16)); // NOI18N
+        lblUserName.setText("USER NAME: ");
+        gridBagConstraints = new java.awt.GridBagConstraints();
+        gridBagConstraints.gridx = 0;
+        gridBagConstraints.gridy = 1;
+        gridBagConstraints.anchor = java.awt.GridBagConstraints.EAST;
+        gridBagConstraints.insets = new java.awt.Insets(10, 10, 10, 10);
+        pnLogin.add(lblUserName, gridBagConstraints);
+
+        getContentPane().add(pnLogin, java.awt.BorderLayout.CENTER);
 
         pack();
     }// </editor-fold>//GEN-END:initComponents
+
+    private void btnLoginActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnLoginActionPerformed
+        // TODO add your handling code here:
+        performLogin();
+    }//GEN-LAST:event_btnLoginActionPerformed
 
     /**
      * @param args the command line arguments
@@ -78,5 +208,13 @@ public class Login extends javax.swing.JFrame {
     }
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
+    private javax.swing.JButton btnLogin;
+    private javax.swing.JLabel lblDisplayResult;
+    private javax.swing.JLabel lblPassword;
+    private javax.swing.JLabel lblTitle;
+    private javax.swing.JLabel lblUserName;
+    private javax.swing.JPanel pnLogin;
+    private javax.swing.JPasswordField txtPassword;
+    private javax.swing.JTextField txtUserName;
     // End of variables declaration//GEN-END:variables
 }

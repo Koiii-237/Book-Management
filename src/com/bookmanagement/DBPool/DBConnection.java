@@ -7,6 +7,10 @@ package com.bookmanagement.DBPool;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.util.UUID;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+
 /**
  *
  * @author Admin
@@ -35,6 +39,21 @@ public class DBConnection {
             ex.printStackTrace(System.out);
         }
         return null;
+    }
+    
+    public static String generateID(String tableName, String idColumn, String prefix) throws SQLException {
+        String sql = String.format("SELECT MAX(%s) FROM %s", idColumn, tableName);
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            if (rs.next() && rs.getString(1) != null) {
+                String maxId = rs.getString(1);
+                int num = Integer.parseInt(maxId.replaceAll("\\D", "")) + 1;
+                return prefix + String.format("%03d", num);
+            } else {
+                return prefix + "001";
+            }
+        }
     }
     
     public static void main(String[] args) {

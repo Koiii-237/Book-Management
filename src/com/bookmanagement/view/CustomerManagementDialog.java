@@ -9,19 +9,21 @@ package com.bookmanagement.view;
  * @author ADMIN
  */
 import com.bookmanagement.Dao.BookManagementDAO;
+import com.bookmanagement.Dao.CustomerDAO;
 import com.bookmanagement.model.Book;
+import com.bookmanagement.model.Customer;
 import java.math.BigDecimal;
 import javax.swing.JOptionPane;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-public class BookManagementDialog extends javax.swing.JDialog {
+public class CustomerManagementDialog extends javax.swing.JDialog {
 
     /**
      * Creates new form BookManagementDialog
      */
-    private Book currentBook; // Đối tượng Book đang được chỉnh sửa (null nếu thêm mới)
-    private BookManagementDAO bookDAO;
+    private Customer cs; // Đối tượng Book đang được chỉnh sửa (null nếu thêm mới)
+    private CustomerDAO csDAO;
     private boolean dataSaved = false;
 
     /**
@@ -31,109 +33,91 @@ public class BookManagementDialog extends javax.swing.JDialog {
      * @param modal
      * @param bookId
      */
-    public BookManagementDialog(java.awt.Frame parent, boolean modal, Book book) {
+    public CustomerManagementDialog(java.awt.Frame parent, boolean modal, Customer cs) {
         super(parent, modal);
-        this.bookDAO = new BookManagementDAO();
-        this.currentBook = book;
+        this.csDAO = new CustomerDAO();
+        this.cs = cs;
         initComponents();
         setLocationRelativeTo(parent);
-        this.setTitle("ADD BOOK AND UPDATE BOOK");
         
         
-        
-        if (currentBook == null) {
+        if (cs == null) {
             // Chế độ Thêm mới: Đặt tiêu đề và xóa trắng các trường
-            setTitle("ADD NEW BOOK!");
-            setSize(500, 300);
+            setTitle("ADD NEW CUSTOMER!");
             clearForm();
-            txtBookID.setToolTipText("Leave blanks if you want the system to generate code");
-            txtBookID.setEditable(true);
+            txtId.setToolTipText("Leave blanks if you want the system to generate code");
+            setSize(500, 300);
+            txtId.setEditable(true);
         } else {
             // Chế độ Chỉnh sửa: Đặt tiêu đề và tải dữ liệu sách vào form
-            setTitle("UPDATE INFORMATION OF BOOK");
+            setTitle("UPDATE INFOR OF CUSTOMER");
+            loadBookDetails(cs);
             setSize(500, 300);
-            loadBookDetails(currentBook);
-            txtBookID.setEditable(false);
+            txtId.setEditable(false);
 
         }
-    }    
-    
-    private void loadBookDetails(Book book) {
-        if (book != null) {
-            txtBookID.setText(book.getBookID());
-            txtBookName.setText(book.getBookName());
-            txtAuthor.setText(book.getAuthor());
-            txtKind.setText(book.getCartegory());
-            txtDescribe.setText(book.getDescibe());
-            txtPrice.setText(book.getPrice() != null ? book.getPrice().toPlainString() : ""); // Đã điều chỉnh: getDonGia()
+    }
+
+    private void loadBookDetails(Customer cs) {
+        if (cs != null) {
+            txtId.setText(cs.getId());
+            txtName.setText(cs.getName());
+            txtAddress.setText(cs.getAddress());
+            txtPhoneNumber.setText(cs.getPhoneNumber());
         }
     }
 
     private void clearForm() {
-        txtBookID.setText("");
-        txtBookName.setText("");
-        txtAuthor.setText("");
-        txtKind.setText("");
-        txtDescribe.setText("");
-        txtPrice.setText("");
+        txtId.setText("");
+        txtName.setText("");
+        txtAddress.setText("");
+        txtPhoneNumber.setText("");
     }
 
 
     public void save() {
         // 1. Lấy dữ liệu từ các trường nhập liệu
-        String name = txtBookName.getText().trim();
-        String author = txtAuthor.getText().trim();
-        String kind = txtKind.getText().trim();
-        String description = txtDescribe.getText().trim();
-        String priceStr = txtPrice.getText().trim();
+        String name = txtName.getText().trim();
+        String address = txtAddress.getText().trim();
+        String phoneNumber = txtPhoneNumber.getText().trim();
 
         // 2. Validate dữ liệu nhập vào (kiểm tra rỗng, định dạng số, ...)
-        if (name.isEmpty() || author.isEmpty() || priceStr.isEmpty()) {
+        if (name.isEmpty() || address.isEmpty() || phoneNumber.isEmpty()) {
             JOptionPane.showMessageDialog(this, "Please enter Book Name, Author, Price.", "NOTIFICATION!", JOptionPane.WARNING_MESSAGE);
             return;
         }
 
         try {
-            BigDecimal price = new BigDecimal(priceStr);
-
-            if (price.compareTo(BigDecimal.ONE) < 0) {
-                JOptionPane.showMessageDialog(this, "Price are not negative.", "NOTIFICATION!", JOptionPane.WARNING_MESSAGE);
-                return;
-            }
-
+            
             boolean result;
-            if (currentBook == null) {
-                Book book = new Book(author, name, author, description, price);
-                result = bookDAO.addBook(book);
+            if (cs == null) {
+                Customer cs = new Customer(name, address, phoneNumber);
+                result = csDAO.addCustomer(cs);
                 if (result) {
-                    JOptionPane.showMessageDialog(this, "Add new Book complete!", "NOTIFICATION!", JOptionPane.INFORMATION_MESSAGE);
+                    JOptionPane.showMessageDialog(this, "Add new Customer complete!", "NOTIFICATION!", JOptionPane.INFORMATION_MESSAGE);
                 }
                 else{
                     
                 }
             } 
             else {
-                currentBook.setBookName(name);
-                currentBook.setAuthor(author);
-                currentBook.setCartegory(kind);
-                currentBook.setDescibe(description);
-                currentBook.setPrice(price);
-                result = bookDAO.updateBook(currentBook);
+                cs.setName(name);
+                cs.setAddress(address);
+                cs.setPhoneNumber(phoneNumber);
+                result = csDAO.updateCustomer(cs);
                 if(result){
-                    JOptionPane.showMessageDialog(this, "Update new Book complete!", "NOTIFICATION!", JOptionPane.INFORMATION_MESSAGE);
+                    JOptionPane.showMessageDialog(this, "Update new Customer complete!", "NOTIFICATION!", JOptionPane.INFORMATION_MESSAGE);
                 }
                 else{
-                    JOptionPane.showMessageDialog(this, "Update new Book fail!", "NOTIFICATION!", JOptionPane.ERROR_MESSAGE);
+                    JOptionPane.showMessageDialog(this, "Update new Customer fail!", "NOTIFICATION!", JOptionPane.ERROR_MESSAGE);
                 }
             }
 
             dataSaved = true; // Đánh dấu là dữ liệu đã được lưu thành công
             dispose(); // Đóng dialog
 
-        } catch (NumberFormatException ex) {
-            JOptionPane.showMessageDialog(this, "Price and quantity must be valid numbers.", "NOTIFICATION!", JOptionPane.ERROR_MESSAGE);
         } catch (Exception ex) {
-            Logger.getLogger(BookManagementDialog.class.getName()).log(Level.SEVERE, "Lỗi khi lưu dữ liệu sách", ex);
+            Logger.getLogger(CustomerManagementDialog.class.getName()).log(Level.SEVERE, "Lỗi khi lưu dữ liệu sách", ex);
             JOptionPane.showMessageDialog(this, "ERROR: " + ex.getMessage(), "NOTIFICATION!", JOptionPane.ERROR_MESSAGE);
             ex.printStackTrace();
         }
@@ -163,27 +147,22 @@ public class BookManagementDialog extends javax.swing.JDialog {
         lblBookID = new javax.swing.JLabel();
         lblAuthor = new javax.swing.JLabel();
         lblKind = new javax.swing.JLabel();
-        lblPrice = new javax.swing.JLabel();
-        txtBookID = new javax.swing.JTextField();
-        txtBookName = new javax.swing.JTextField();
-        txtAuthor = new javax.swing.JTextField();
-        txtKind = new javax.swing.JTextField();
-        txtPrice = new javax.swing.JTextField();
-        lblDescribe = new javax.swing.JLabel();
-        txtDescribe = new javax.swing.JTextField();
+        txtId = new javax.swing.JTextField();
+        txtName = new javax.swing.JTextField();
+        txtAddress = new javax.swing.JTextField();
+        txtPhoneNumber = new javax.swing.JTextField();
         pnButton = new javax.swing.JPanel();
         btnSave = new javax.swing.JButton();
         btnCancel = new javax.swing.JButton();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
-        setMinimumSize(new java.awt.Dimension(200, 300));
+        setTitle("CUSTOMER ");
         setModal(true);
-        setSize(new java.awt.Dimension(800, 500));
 
         formPanel.setBorder(javax.swing.BorderFactory.createEmptyBorder(1, 1, 1, 1));
         formPanel.setLayout(new java.awt.GridBagLayout());
 
-        lblBookName.setText("Book Name: ");
+        lblBookName.setText("NAME: ");
         gridBagConstraints = new java.awt.GridBagConstraints();
         gridBagConstraints.gridx = 0;
         gridBagConstraints.gridy = 1;
@@ -191,7 +170,7 @@ public class BookManagementDialog extends javax.swing.JDialog {
         gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
         formPanel.add(lblBookName, gridBagConstraints);
 
-        lblBookID.setText("ID BOOK: ");
+        lblBookID.setText("ID CUSTOMER : ");
         gridBagConstraints = new java.awt.GridBagConstraints();
         gridBagConstraints.gridx = 0;
         gridBagConstraints.gridy = 0;
@@ -199,7 +178,7 @@ public class BookManagementDialog extends javax.swing.JDialog {
         gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
         formPanel.add(lblBookID, gridBagConstraints);
 
-        lblAuthor.setText("Author: ");
+        lblAuthor.setText("ADDRESS: ");
         gridBagConstraints = new java.awt.GridBagConstraints();
         gridBagConstraints.gridx = 0;
         gridBagConstraints.gridy = 2;
@@ -207,7 +186,7 @@ public class BookManagementDialog extends javax.swing.JDialog {
         gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
         formPanel.add(lblAuthor, gridBagConstraints);
 
-        lblKind.setText("Kind: ");
+        lblKind.setText("PHONE NUMBER: ");
         gridBagConstraints = new java.awt.GridBagConstraints();
         gridBagConstraints.gridx = 0;
         gridBagConstraints.gridy = 3;
@@ -215,15 +194,7 @@ public class BookManagementDialog extends javax.swing.JDialog {
         gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
         formPanel.add(lblKind, gridBagConstraints);
 
-        lblPrice.setText("Price: ");
-        gridBagConstraints = new java.awt.GridBagConstraints();
-        gridBagConstraints.gridx = 0;
-        gridBagConstraints.gridy = 5;
-        gridBagConstraints.anchor = java.awt.GridBagConstraints.WEST;
-        gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
-        formPanel.add(lblPrice, gridBagConstraints);
-
-        txtBookID.setEditable(false);
+        txtId.setEditable(false);
         gridBagConstraints = new java.awt.GridBagConstraints();
         gridBagConstraints.gridx = 1;
         gridBagConstraints.gridy = 0;
@@ -231,11 +202,11 @@ public class BookManagementDialog extends javax.swing.JDialog {
         gridBagConstraints.anchor = java.awt.GridBagConstraints.WEST;
         gridBagConstraints.weightx = 1.0;
         gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
-        formPanel.add(txtBookID, gridBagConstraints);
+        formPanel.add(txtId, gridBagConstraints);
 
-        txtBookName.addActionListener(new java.awt.event.ActionListener() {
+        txtName.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
-                txtBookNameActionPerformed(evt);
+                txtNameActionPerformed(evt);
             }
         });
         gridBagConstraints = new java.awt.GridBagConstraints();
@@ -245,7 +216,7 @@ public class BookManagementDialog extends javax.swing.JDialog {
         gridBagConstraints.anchor = java.awt.GridBagConstraints.WEST;
         gridBagConstraints.weightx = 1.0;
         gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
-        formPanel.add(txtBookName, gridBagConstraints);
+        formPanel.add(txtName, gridBagConstraints);
         gridBagConstraints = new java.awt.GridBagConstraints();
         gridBagConstraints.gridx = 1;
         gridBagConstraints.gridy = 2;
@@ -253,7 +224,7 @@ public class BookManagementDialog extends javax.swing.JDialog {
         gridBagConstraints.anchor = java.awt.GridBagConstraints.WEST;
         gridBagConstraints.weightx = 1.0;
         gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
-        formPanel.add(txtAuthor, gridBagConstraints);
+        formPanel.add(txtAddress, gridBagConstraints);
         gridBagConstraints = new java.awt.GridBagConstraints();
         gridBagConstraints.gridx = 1;
         gridBagConstraints.gridy = 3;
@@ -262,37 +233,7 @@ public class BookManagementDialog extends javax.swing.JDialog {
         gridBagConstraints.weightx = 1.0;
         gridBagConstraints.weighty = 1.0;
         gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
-        formPanel.add(txtKind, gridBagConstraints);
-        gridBagConstraints = new java.awt.GridBagConstraints();
-        gridBagConstraints.gridx = 1;
-        gridBagConstraints.gridy = 5;
-        gridBagConstraints.fill = java.awt.GridBagConstraints.HORIZONTAL;
-        gridBagConstraints.anchor = java.awt.GridBagConstraints.WEST;
-        gridBagConstraints.weightx = 1.0;
-        gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
-        formPanel.add(txtPrice, gridBagConstraints);
-
-        lblDescribe.setText("Descibe: ");
-        gridBagConstraints = new java.awt.GridBagConstraints();
-        gridBagConstraints.gridx = 0;
-        gridBagConstraints.gridy = 4;
-        gridBagConstraints.anchor = java.awt.GridBagConstraints.WEST;
-        gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
-        formPanel.add(lblDescribe, gridBagConstraints);
-
-        txtDescribe.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                txtDescribeActionPerformed(evt);
-            }
-        });
-        gridBagConstraints = new java.awt.GridBagConstraints();
-        gridBagConstraints.gridx = 1;
-        gridBagConstraints.gridy = 4;
-        gridBagConstraints.fill = java.awt.GridBagConstraints.HORIZONTAL;
-        gridBagConstraints.anchor = java.awt.GridBagConstraints.WEST;
-        gridBagConstraints.weightx = 1.0;
-        gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
-        formPanel.add(txtDescribe, gridBagConstraints);
+        formPanel.add(txtPhoneNumber, gridBagConstraints);
 
         getContentPane().add(formPanel, java.awt.BorderLayout.CENTER);
 
@@ -319,13 +260,9 @@ public class BookManagementDialog extends javax.swing.JDialog {
         pack();
     }// </editor-fold>//GEN-END:initComponents
 
-    private void txtBookNameActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_txtBookNameActionPerformed
+    private void txtNameActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_txtNameActionPerformed
         // TODO add your handling code here:
-    }//GEN-LAST:event_txtBookNameActionPerformed
-
-    private void txtDescribeActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_txtDescribeActionPerformed
-        // TODO add your handling code here:
-    }//GEN-LAST:event_txtDescribeActionPerformed
+    }//GEN-LAST:event_txtNameActionPerformed
 
     private void txtSearchActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_txtSearchActionPerformed
         // TODO add your handling code here:
@@ -366,20 +303,21 @@ public class BookManagementDialog extends javax.swing.JDialog {
                 }
             }
         } catch (ClassNotFoundException ex) {
-            java.util.logging.Logger.getLogger(BookManagementDialog.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
+            java.util.logging.Logger.getLogger(CustomerManagementDialog.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
         } catch (InstantiationException ex) {
-            java.util.logging.Logger.getLogger(BookManagementDialog.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
+            java.util.logging.Logger.getLogger(CustomerManagementDialog.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
         } catch (IllegalAccessException ex) {
-            java.util.logging.Logger.getLogger(BookManagementDialog.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
+            java.util.logging.Logger.getLogger(CustomerManagementDialog.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
         } catch (javax.swing.UnsupportedLookAndFeelException ex) {
-            java.util.logging.Logger.getLogger(BookManagementDialog.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
+            java.util.logging.Logger.getLogger(CustomerManagementDialog.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
         }
+        //</editor-fold>
         //</editor-fold>
 
         /* Create and display the dialog */
         java.awt.EventQueue.invokeLater(new Runnable() {
             public void run() {
-                BookManagementDialog dialog = new BookManagementDialog(new javax.swing.JFrame(), true, null);
+                CustomerManagementDialog dialog = new CustomerManagementDialog(new javax.swing.JFrame(), true, null);
                 dialog.addWindowListener(new java.awt.event.WindowAdapter() {
                     @Override
                     public void windowClosing(java.awt.event.WindowEvent e) {
@@ -398,15 +336,11 @@ public class BookManagementDialog extends javax.swing.JDialog {
     private javax.swing.JLabel lblAuthor;
     private javax.swing.JLabel lblBookID;
     private javax.swing.JLabel lblBookName;
-    private javax.swing.JLabel lblDescribe;
     private javax.swing.JLabel lblKind;
-    private javax.swing.JLabel lblPrice;
     private javax.swing.JPanel pnButton;
-    private javax.swing.JTextField txtAuthor;
-    private javax.swing.JTextField txtBookID;
-    private javax.swing.JTextField txtBookName;
-    private javax.swing.JTextField txtDescribe;
-    private javax.swing.JTextField txtKind;
-    private javax.swing.JTextField txtPrice;
+    private javax.swing.JTextField txtAddress;
+    private javax.swing.JTextField txtId;
+    private javax.swing.JTextField txtName;
+    private javax.swing.JTextField txtPhoneNumber;
     // End of variables declaration//GEN-END:variables
 }
