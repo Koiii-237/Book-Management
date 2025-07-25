@@ -60,17 +60,7 @@ public class InvoiceDialog extends javax.swing.JDialog {
     public InvoiceDialog(Window parent, String orderId) throws SQLException {
         super(parent, "Hóa Đơn Đơn Hàng - " + orderId, ModalityType.APPLICATION_MODAL);
         initComponents();
-        try {
-            loadData(orderId);
-        } catch (SQLException ex) {
-            JOptionPane.showMessageDialog(
-                this,
-                "Lỗi khi tải hóa đơn: " + ex.getMessage(),
-                "Lỗi", JOptionPane.ERROR_MESSAGE
-            );
-            dispose();
-            return;
-        }
+        loadData(orderId);
         pack();
         setLocationRelativeTo(parent);
 
@@ -132,6 +122,9 @@ public class InvoiceDialog extends javax.swing.JDialog {
                     JOptionPane.WARNING_MESSAGE
                 );
             }
+                else{
+                    JOptionPane.showMessageDialog(this, "COMPLETE!", "NOTFIFICATION", JOptionPane.INFORMATION_MESSAGE);
+                }
         });
     }
     
@@ -232,6 +225,7 @@ public class InvoiceDialog extends javax.swing.JDialog {
 
     private void btnPrintActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnPrintActionPerformed
         // TODO add your handling code here:
+        
     }//GEN-LAST:event_btnPrintActionPerformed
 
     private void btnCancelActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnCancelActionPerformed

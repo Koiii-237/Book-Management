@@ -55,7 +55,7 @@ public class Login extends javax.swing.JFrame {
     UserSession session = AuthService.login(username, password); // Hoặc code tự tạo UserSession
 
     if (session != null) {
-        Main_Interface main = new Main_Interface();
+        MainWindow main = new MainWindow();
         main.setSessionAndPermissions(session);
         main.setVisible(true);
         this.dispose();

@@ -7,8 +7,9 @@ import java.util.Set;
 public class UserSession {
 
     private static User currentUser;
+    private String role;
     private List<String> permissions;
-    
+
     public UserSession(User user, List<String> permissions) {
         currentUser = user;
         this.permissions = permissions;

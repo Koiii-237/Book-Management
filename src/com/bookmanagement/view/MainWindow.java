@@ -7,6 +7,7 @@ package com.bookmanagement.view;
 import com.bookmanagement.Dao.UserDAO;
 import com.bookmanagement.model.User;
 import com.bookmanagement.model.UserSession;
+import com.bookmanagement.service.AuthService;
 import com.bookmanagement.view.BookManagementPanel;
 import com.bookmanagement.view.CustomerManagementPanel;
 import com.bookmanagement.view.HomePanel;
@@ -35,42 +36,65 @@ import javax.swing.SwingConstants;
  *
  * @author ADMIN
  */
-public class Main_Interface extends javax.swing.JFrame {
+public class MainWindow extends javax.swing.JFrame {
 
     /**
      * Creates new form Main_Interface
      */
-    CardLayout cardLayout;
+    CardLayout dataPannelLayout;
+    CardLayout containerPannelLayout;
 
     private UserSession currentSession;
+    private static String LOGIN_SCREEN_NAME = "pnLoginScreen";
+    private static String MAIN_SCREEN_NAME = "pnMainScreen";
+    private UserSession session;
 
-    public Main_Interface() {
+    public MainWindow() {
         initComponents();
         setLocationRelativeTo(null);
         setSize(1200, 700);
-
-        cardLayout = (CardLayout) mainContentPanel.getLayout();
+        
+        containerPannelLayout = (CardLayout) containerPannel.getLayout();
+        containerPannel.add(pnLoginScreen, LOGIN_SCREEN_NAME);
+        containerPannel.add(pnMainScreen, MAIN_SCREEN_NAME);
 
         // 2. Thêm các Panel chức năng vào mainContentPane
         // Mỗi màn hình chức năng sẽ là một thể hiện của JPanel Form bạn tạo riêng
-        mainContentPanel.add(new HomePanel(), "Home");
-        mainContentPanel.add(new BookManagementPanel(), "BookManagement");
-        mainContentPanel.add(new InventoryManagementPanel(), "InventoryManagement");
-        mainContentPanel.add(new CustomerManagementPanel(), "CustomerManagement");
-        mainContentPanel.add(new OrderManagementPanel(), "OrderManagement");
-        mainContentPanel.add(new UserManagementPanel(), "UserManagement");
+        dataPannelLayout = (CardLayout) dataPannel.getLayout();
+        dataPannel.add(new HomePanel(), "Home");
+        dataPannel.add(new BookManagementPanel(), "BookManagement");
+        dataPannel.add(new InventoryManagementPanel(), "InventoryManagement");
+        dataPannel.add(new CustomerManagementPanel(), "CustomerManagement");
+        dataPannel.add(new OrderManagementPanel(), "OrderManagement");
+        dataPannel.add(new UserManagementPanel(), "UserManagement");
 
         // 3. Gắn ActionListener cho các nút Sidebar
-        btnHome.addActionListener(e -> cardLayout.show(mainContentPanel, "Home"));
-        btnBook.addActionListener(e -> cardLayout.show(mainContentPanel, "BookManagement"));
-        btnInventory.addActionListener(e -> cardLayout.show(mainContentPanel, "InventoryManagement"));
-        btnCustomer.addActionListener(e -> cardLayout.show(mainContentPanel, "CustomerManagement"));
-        btnOrder.addActionListener(e -> cardLayout.show(mainContentPanel, "OrderManagement"));
-        btnUser.addActionListener(e -> cardLayout.show(mainContentPanel, "UserManagement"));
+        btnHome.addActionListener(e -> dataPannelLayout.show(dataPannel, "Home"));
+        btnBook.addActionListener(e -> dataPannelLayout.show(dataPannel, "BookManagement"));
+        btnInventory.addActionListener(e -> dataPannelLayout.show(dataPannel, "InventoryManagement"));
+        btnCustomer.addActionListener(e -> dataPannelLayout.show(dataPannel, "CustomerManagement"));
+        btnOrder.addActionListener(e -> dataPannelLayout.show(dataPannel, "OrderManagement"));
+        btnUser.addActionListener(e -> dataPannelLayout.show(dataPannel, "UserManagement"));
 
         // 5. Hiển thị màn hình "Trang Chủ" mặc định khi khởi động
-        cardLayout.show(mainContentPanel, "Home");
+        containerPannelLayout.show(containerPannel, LOGIN_SCREEN_NAME);
+    }
 
+    
+    private void performLogin() {
+        String username = txtUserName.getText().trim();
+        String password = new String(txtPassword.getPassword());
+
+        // Kiểm tra login (giả sử login thành công)
+        this.session = AuthService.login(username, password); // Hoặc code tự tạo UserSession
+
+        if (this.session != null) {
+            // swap in the pannel according to role
+            this.buildMenu();
+            containerPannelLayout.show(containerPannel, MAIN_SCREEN_NAME);
+        } else {
+            JOptionPane.showMessageDialog(this, "Sai tên đăng nhập hoặc mật khẩu");
+        }
     }
 
     private void applyPermissions() {
@@ -116,12 +140,23 @@ public class Main_Interface extends javax.swing.JFrame {
     @SuppressWarnings("unchecked")
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
+        java.awt.GridBagConstraints gridBagConstraints;
 
-        headerPanel = new javax.swing.JPanel();
+        pnHeader = new javax.swing.JPanel();
         jLabel1 = new javax.swing.JLabel();
         userInforPanel = new javax.swing.JPanel();
         lblWelcomeUser = new javax.swing.JLabel();
         btnLogout = new javax.swing.JToggleButton();
+        containerPannel = new javax.swing.JPanel();
+        pnLoginScreen = new javax.swing.JPanel();
+        txtPassword = new javax.swing.JPasswordField();
+        btnLogin = new javax.swing.JButton();
+        txtUserName = new javax.swing.JTextField();
+        lblDisplayResult = new javax.swing.JLabel();
+        lblTitle = new javax.swing.JLabel();
+        lblPassword = new javax.swing.JLabel();
+        lblUserName = new javax.swing.JLabel();
+        pnMainScreen = new javax.swing.JPanel();
         sidebarPanel = new javax.swing.JPanel();
         btnHome = new javax.swing.JButton();
         btnBook = new javax.swing.JButton();
@@ -129,19 +164,19 @@ public class Main_Interface extends javax.swing.JFrame {
         btnInventory = new javax.swing.JButton();
         btnOrder = new javax.swing.JButton();
         btnUser = new javax.swing.JButton();
-        mainContentPanel = new javax.swing.JPanel();
+        dataPannel = new javax.swing.JPanel();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
         setTitle("BOOK MANAGEMENT");
         setAlwaysOnTop(true);
         setMinimumSize(new java.awt.Dimension(800, 500));
 
-        headerPanel.setBackground(new java.awt.Color(0, 153, 204));
-        headerPanel.setLayout(new java.awt.BorderLayout());
+        pnHeader.setBackground(new java.awt.Color(0, 153, 204));
+        pnHeader.setLayout(new java.awt.BorderLayout());
 
         jLabel1.setFont(new java.awt.Font("Arial", 1, 24)); // NOI18N
         jLabel1.setText("BOOK MANAGEMENT");
-        headerPanel.add(jLabel1, java.awt.BorderLayout.CENTER);
+        pnHeader.add(jLabel1, java.awt.BorderLayout.CENTER);
 
         userInforPanel.setOpaque(false);
 
@@ -158,9 +193,86 @@ public class Main_Interface extends javax.swing.JFrame {
         });
         userInforPanel.add(btnLogout);
 
-        headerPanel.add(userInforPanel, java.awt.BorderLayout.LINE_END);
+        pnHeader.add(userInforPanel, java.awt.BorderLayout.LINE_END);
 
-        getContentPane().add(headerPanel, java.awt.BorderLayout.PAGE_START);
+        getContentPane().add(pnHeader, java.awt.BorderLayout.PAGE_START);
+
+        containerPannel.setLayout(new java.awt.CardLayout());
+
+        pnLoginScreen.setBorder(javax.swing.BorderFactory.createEmptyBorder(25, 25, 25, 25));
+        pnLoginScreen.setLayout(new java.awt.GridBagLayout());
+        gridBagConstraints = new java.awt.GridBagConstraints();
+        gridBagConstraints.gridx = 1;
+        gridBagConstraints.gridy = 2;
+        gridBagConstraints.fill = java.awt.GridBagConstraints.HORIZONTAL;
+        gridBagConstraints.weightx = 1.0;
+        gridBagConstraints.insets = new java.awt.Insets(10, 10, 10, 10);
+        pnLoginScreen.add(txtPassword, gridBagConstraints);
+
+        btnLogin.setText("LOGIN");
+        btnLogin.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                btnLoginActionPerformed(evt);
+            }
+        });
+        gridBagConstraints = new java.awt.GridBagConstraints();
+        gridBagConstraints.gridx = 0;
+        gridBagConstraints.gridy = 3;
+        gridBagConstraints.gridwidth = 2;
+        gridBagConstraints.insets = new java.awt.Insets(10, 10, 10, 10);
+        pnLoginScreen.add(btnLogin, gridBagConstraints);
+
+        txtUserName.setColumns(20);
+        gridBagConstraints = new java.awt.GridBagConstraints();
+        gridBagConstraints.gridx = 1;
+        gridBagConstraints.gridy = 1;
+        gridBagConstraints.fill = java.awt.GridBagConstraints.HORIZONTAL;
+        gridBagConstraints.weightx = 1.0;
+        gridBagConstraints.insets = new java.awt.Insets(10, 10, 10, 10);
+        pnLoginScreen.add(txtUserName, gridBagConstraints);
+
+        lblDisplayResult.setForeground(new java.awt.Color(255, 0, 0));
+        lblDisplayResult.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+        gridBagConstraints = new java.awt.GridBagConstraints();
+        gridBagConstraints.gridx = 0;
+        gridBagConstraints.gridy = 4;
+        gridBagConstraints.gridwidth = 2;
+        gridBagConstraints.fill = java.awt.GridBagConstraints.HORIZONTAL;
+        gridBagConstraints.anchor = java.awt.GridBagConstraints.NORTHWEST;
+        gridBagConstraints.weightx = 1.0;
+        gridBagConstraints.insets = new java.awt.Insets(10, 10, 10, 10);
+        pnLoginScreen.add(lblDisplayResult, gridBagConstraints);
+
+        lblTitle.setFont(new java.awt.Font("Arial", 1, 24)); // NOI18N
+        lblTitle.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+        lblTitle.setText("LOGIN TO SYSTEM");
+        gridBagConstraints = new java.awt.GridBagConstraints();
+        gridBagConstraints.gridx = 0;
+        gridBagConstraints.gridy = 0;
+        gridBagConstraints.gridwidth = 2;
+        gridBagConstraints.fill = java.awt.GridBagConstraints.HORIZONTAL;
+        gridBagConstraints.insets = new java.awt.Insets(0, 0, 25, 0);
+        pnLoginScreen.add(lblTitle, gridBagConstraints);
+
+        lblPassword.setFont(new java.awt.Font("Arial", 0, 16)); // NOI18N
+        lblPassword.setText("PASSWORD: ");
+        gridBagConstraints = new java.awt.GridBagConstraints();
+        gridBagConstraints.gridx = 0;
+        gridBagConstraints.gridy = 2;
+        gridBagConstraints.anchor = java.awt.GridBagConstraints.EAST;
+        gridBagConstraints.insets = new java.awt.Insets(10, 10, 10, 10);
+        pnLoginScreen.add(lblPassword, gridBagConstraints);
+
+        lblUserName.setFont(new java.awt.Font("Arial", 0, 16)); // NOI18N
+        lblUserName.setText("USER NAME: ");
+        gridBagConstraints = new java.awt.GridBagConstraints();
+        gridBagConstraints.gridx = 0;
+        gridBagConstraints.gridy = 1;
+        gridBagConstraints.anchor = java.awt.GridBagConstraints.EAST;
+        gridBagConstraints.insets = new java.awt.Insets(10, 10, 10, 10);
+        pnLoginScreen.add(lblUserName, gridBagConstraints);
+
+        containerPannel.add(pnLoginScreen, "card2");
 
         sidebarPanel.setBackground(new java.awt.Color(204, 255, 255));
         sidebarPanel.setPreferredSize(new java.awt.Dimension(250, 586));
@@ -245,11 +357,15 @@ public class Main_Interface extends javax.swing.JFrame {
         });
         sidebarPanel.add(btnUser);
 
-        getContentPane().add(sidebarPanel, java.awt.BorderLayout.LINE_START);
+        pnMainScreen.add(sidebarPanel);
 
-        mainContentPanel.setBackground(new java.awt.Color(102, 102, 102));
-        mainContentPanel.setLayout(new java.awt.CardLayout());
-        getContentPane().add(mainContentPanel, java.awt.BorderLayout.CENTER);
+        dataPannel.setBackground(new java.awt.Color(102, 102, 102));
+        dataPannel.setLayout(new java.awt.CardLayout());
+        pnMainScreen.add(dataPannel);
+
+        containerPannel.add(pnMainScreen, "card2");
+
+        getContentPane().add(containerPannel, java.awt.BorderLayout.LINE_END);
 
         pack();
     }// </editor-fold>//GEN-END:initComponents
@@ -283,6 +399,11 @@ public class Main_Interface extends javax.swing.JFrame {
         // TODO add your handling code here:
     }//GEN-LAST:event_btnUserActionPerformed
 
+    private void btnLoginActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnLoginActionPerformed
+        // TODO add your handling code here:
+        performLogin();
+    }//GEN-LAST:event_btnLoginActionPerformed
+
     /**
      * @param args the command line arguments
      */
@@ -300,20 +421,21 @@ public class Main_Interface extends javax.swing.JFrame {
                 }
             }
         } catch (ClassNotFoundException ex) {
-            java.util.logging.Logger.getLogger(Main_Interface.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
+            java.util.logging.Logger.getLogger(MainWindow.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
         } catch (InstantiationException ex) {
-            java.util.logging.Logger.getLogger(Main_Interface.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
+            java.util.logging.Logger.getLogger(MainWindow.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
         } catch (IllegalAccessException ex) {
-            java.util.logging.Logger.getLogger(Main_Interface.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
+            java.util.logging.Logger.getLogger(MainWindow.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
         } catch (javax.swing.UnsupportedLookAndFeelException ex) {
-            java.util.logging.Logger.getLogger(Main_Interface.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
+            java.util.logging.Logger.getLogger(MainWindow.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
         }
+        //</editor-fold>
         //</editor-fold>
 
         /* Create and display the form */
         java.awt.EventQueue.invokeLater(new Runnable() {
             public void run() {
-                new Main_Interface().setVisible(true);
+                new MainWindow().setVisible(true);
             }
         });
     }
@@ -323,14 +445,30 @@ public class Main_Interface extends javax.swing.JFrame {
     private javax.swing.JButton btnCustomer;
     private javax.swing.JButton btnHome;
     private javax.swing.JButton btnInventory;
+    private javax.swing.JButton btnLogin;
     private javax.swing.JToggleButton btnLogout;
     private javax.swing.JButton btnOrder;
     private javax.swing.JButton btnUser;
-    private javax.swing.JPanel headerPanel;
+    private javax.swing.JPanel containerPannel;
+    private javax.swing.JPanel dataPannel;
     private javax.swing.JLabel jLabel1;
+    private javax.swing.JLabel lblDisplayResult;
+    private javax.swing.JLabel lblPassword;
+    private javax.swing.JLabel lblTitle;
+    private javax.swing.JLabel lblUserName;
     private javax.swing.JLabel lblWelcomeUser;
-    private javax.swing.JPanel mainContentPanel;
+    private javax.swing.JPanel pnHeader;
+    private javax.swing.JPanel pnLoginScreen;
+    private javax.swing.JPanel pnMainScreen;
     private javax.swing.JPanel sidebarPanel;
+    private javax.swing.JPasswordField txtPassword;
+    private javax.swing.JTextField txtUserName;
     private javax.swing.JPanel userInforPanel;
     // End of variables declaration//GEN-END:variables
+
+    private void buildMenu() {
+        if (this.session.role == Role.ADMIN) {
+            
+        }
+    }
 }

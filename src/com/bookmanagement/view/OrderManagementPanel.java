@@ -73,7 +73,7 @@ public class OrderManagementPanel extends javax.swing.JPanel {
         if (row < 0) {
             return null;
         }
-        String id = tblOrder.getValueAt(row, 0).toString(); // Sửa từ 1 -> 0
+        String id = tblOrder.getValueAt(row, 0).toString(); // Cột 0 chứa ORDER ID
         return orderDAO.findById(id);
     }
 
@@ -308,11 +308,10 @@ public class OrderManagementPanel extends javax.swing.JPanel {
     private void btnDetailActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnDetailActionPerformed
         Order selected = getSelectedOrder();
         if (selected == null) {
-            JOptionPane.showMessageDialog(this, "Vui lòng chọn đơn hàng để xem chi tiết.");
+            JOptionPane.showMessageDialog(this, "Vui lòng chọn đơn hàng.");
             return;
         }
         try {
-            // Lấy orderId từ đối tượng đã chọn
             InvoiceDialog dlg = new InvoiceDialog(
                     SwingUtilities.getWindowAncestor(this),
                     selected.getOrderId()
@@ -321,9 +320,7 @@ public class OrderManagementPanel extends javax.swing.JPanel {
         } catch (SQLException ex) {
             JOptionPane.showMessageDialog(this,
                     "Lỗi khi mở hóa đơn: " + ex.getMessage(),
-                    "Lỗi",
-                    JOptionPane.ERROR_MESSAGE
-            );
+                    "Lỗi", JOptionPane.ERROR_MESSAGE);
         }
     }//GEN-LAST:event_btnDetailActionPerformed
 
