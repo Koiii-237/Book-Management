@@ -41,91 +41,128 @@ public class InvoiceDialog extends javax.swing.JDialog {
     /**
      * Creates new form BookManagementDialog
      */
-    private Order currentOrder; // Đối tượng Book đang được chỉnh sửa (null nếu thêm mới)
-    private OrderDAO orderDAO;
-    private boolean dataSaved = false;
-    private ArrayList<Order> allOrders;
+    private static final Logger LOGGER = Logger.getLogger(InvoiceDialog.class.getName());
+    // Định dạng ngày tháng
     DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+    // Định dạng tiền tệ Việt Nam Đồng
     NumberFormat currencyFmt = NumberFormat.getCurrencyInstance(new Locale("vi", "VN"));
-    private Order order;
-    private Customer customer;
+    
+    private Invoice currentInvoice; // Lưu trữ đối tượng Invoice hiện tại
 
     /**
-     * Constructor
+     * Constructor chính cho InvoiceDialog.
+     * Hiển thị chi tiết của một hóa đơn đã tồn tại.
      *
-     * @param parent
-     * @param modal
-     * @param bookId
+     * @param parent Cửa sổ cha của dialog (có thể là null).
+     * @param invoice Đối tượng Invoice chứa dữ liệu hóa đơn cần hiển thị.
      */
-    public InvoiceDialog(Window parent, String orderId) throws SQLException {
-        super(parent, "Hóa Đơn Đơn Hàng - " + orderId, ModalityType.APPLICATION_MODAL);
+    public InvoiceDialog(Window parent, Invoice invoice) {
+        super(parent, "Hóa Đơn", ModalityType.APPLICATION_MODAL);
         initComponents();
-        loadData(orderId);
-        pack();
-        setLocationRelativeTo(parent);
-
-    }
-    
-    private void loadData(String orderId) throws SQLException {
-        // formatters
-         DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-        NumberFormat fmt = NumberFormat.getCurrencyInstance(new Locale("vi", "VN"));
-
-        // 1) load header
-        Invoice header = new InvoiceDAO().findById(orderId);
-        if (header == null) {
+        this.currentInvoice = invoice; // Gán đối tượng Invoice được truyền vào
+        
+        System.out.println("InvoiceDialog: Khởi tạo với Invoice ID: " + (invoice != null ? invoice.getInvoiceId() : "NULL"));
+        
+        // Gán sự kiện cho nút Cancel
+        btnCancel.addActionListener(e -> dispose());
+        
+        // Tải dữ liệu hóa đơn
+        try {
+            if (currentInvoice != null) {
+                loadData(currentInvoice); // Gọi loadData với đối tượng Invoice
+                pack(); // Đóng gói các thành phần UI
+                setLocationRelativeTo(parent); // Đặt dialog ở giữa cửa sổ cha
+                System.out.println("InvoiceDialog: Tải dữ liệu và hiển thị thành công.");
+            } else {
+                JOptionPane.showMessageDialog(this,
+                    "Không có thông tin hóa đơn để hiển thị.",
+                    "Lỗi", JOptionPane.ERROR_MESSAGE
+                );
+                dispose(); // Đóng dialog nếu không có hóa đơn
+            }
+        } catch (SQLException ex) {
+            LOGGER.log(Level.SEVERE, "InvoiceDialog: Lỗi khi tải dữ liệu hóa đơn.", ex);
             JOptionPane.showMessageDialog(this,
-                "Không tìm thấy hóa đơn: " + orderId,
+                "Lỗi khi tải dữ liệu hóa đơn: " + ex.getMessage(),
                 "Lỗi", JOptionPane.ERROR_MESSAGE
             );
-            dispose();
-            return;
+            dispose(); // Đóng dialog nếu có lỗi nghiêm trọng khi tải dữ liệu
         }
-        lblInvoiceID.setText(header.getInvoiceId());
-        lblOrderDate.setText(header.getDateGenerate().format(dtf));
-        lblTotal.setText(fmt.format(header.getMoneyTotal()));
-        lblPaymentMethod.setText(header.getPaymentMethod());
-        lblGustMoney.setText(fmt.format(header.getGuestMoney()));
-        lblChangeMoney.setText(fmt.format(header.getChange()));
+        
+        // Gán sự kiện in cho nút Print
+        btnPrint.addActionListener((ActionEvent e) -> {
+            if (currentInvoice != null) {
+                System.out.println("InvoiceDialog: Nút Print được nhấn cho Invoice ID: " + currentInvoice.getInvoiceId());
+                boolean ok = InvoicePrinter.printInvoice(currentInvoice.getOrderId()); // Gọi phương thức in hóa đơn với orderId
+                if (!ok) {
+                    JOptionPane.showMessageDialog(this,
+                        "In hóa đơn thất bại hoặc bị hủy.",
+                        "Thông báo",
+                        JOptionPane.WARNING_MESSAGE
+                    );
+                } else {
+                    JOptionPane.showMessageDialog(this, "In hóa đơn hoàn tất!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
+                }
+            } else {
+                 JOptionPane.showMessageDialog(this, "Không có hóa đơn để in.", "Thông báo", JOptionPane.WARNING_MESSAGE);
+            }
+        });
+    }
+    
+    /**
+     * Tải dữ liệu hóa đơn và chi tiết đơn hàng dựa trên đối tượng Invoice.
+     * @param invoice Đối tượng Invoice chứa dữ liệu hóa đơn.
+     * @throws SQLException Nếu có lỗi khi truy vấn cơ sở dữ liệu.
+     */
+    private void loadData(Invoice invoice) throws SQLException {
+        OrderDetailDAO orderDetailDAO = new OrderDetailDAO();
+        BookManagementDAO bookManagementDAO = new BookManagementDAO();
 
-        // 2) load chi tiết đơn hàng
-        List<OrderDetail> items = (List<OrderDetail>) new OrderDetailDAO().findById(orderId);
-        BookManagementDAO sachDAO = new BookManagementDAO();
+        // 1. Xóa nội dung cũ và thiết lập trạng thái mặc định
+        txtProducts.setText("");
+        
+        // 2. Điền thông tin header từ đối tượng Invoice
+        lblInvoiceID.setText("MÃ HÓA ĐƠN: " + invoice.getInvoiceId());
+        lblOrderDate.setText("NGÀY TẠO: " + invoice.getDateGenerate().format(fmt));
+        lblTotal.setText("TỔNG CỘNG: " + currencyFmt.format(invoice.getMoneyTotal()));
+        lblPaymentMethod.setText("PHƯƠNG THỨC TT: " + invoice.getPaymentMethod());
+        lblGustMoney.setText("TIỀN KHÁCH TRẢ: " + currencyFmt.format(invoice.getGuestMoney()));
+        lblChangeMoney.setText("TIỀN THỪA: " + currencyFmt.format(invoice.getChange()));
+        
+        System.out.println("InvoiceDialog.loadData: Đã điền thông tin hóa đơn ID: " + invoice.getInvoiceId());
+        btnPrint.setEnabled(true); // Kích hoạt nút in
+        System.out.println("InvoiceDialog.loadData: Hóa đơn tìm thấy, nút Print được kích hoạt.");
 
-        txtProducts.setText("");  // xóa sạch trước khi append
+        // 3. Tải chi tiết đơn hàng (các mặt hàng trong hóa đơn)
+        // Sử dụng orderId từ đối tượng Invoice để lấy chi tiết đơn hàng
+        List<OrderDetail> items = orderDetailDAO.getOrderDetailByOrderId(invoice.getOrderId()); 
+        System.out.println("InvoiceDialog.loadData: Đã tìm kiếm chi tiết đơn hàng cho Order ID " + invoice.getOrderId() + ". Số lượng: " + (items != null ? items.size() : "null"));
+
         txtProducts.append(String.format("%-30s %5s %15s %15s%n",
                 "Sản phẩm", "SL", "Đơn giá", "Thành tiền"));
         txtProducts.append("------------------------------------------------------------\n");
 
-        BigDecimal sum = BigDecimal.ZERO;
-        for (OrderDetail od : items) {
-            Book b = sachDAO.readBookById(od.getBookId());
-            String name = b != null ? b.getBookName() : od.getBookId();
-            int qty = od.getQuantity();
-            BigDecimal unitPrice = od.getCoin();
-            BigDecimal lineTotal = unitPrice.multiply(BigDecimal.valueOf(qty));
-            sum = sum.add(lineTotal);
+        if (items == null || items.isEmpty()) {
+            txtProducts.append("Không có sản phẩm nào trong hóa đơn này.");
+            System.out.println("InvoiceDialog.loadData: Không có chi tiết đơn hàng nào được tìm thấy cho hóa đơn này.");
+        } else {
+            BigDecimal sum = BigDecimal.ZERO;
+            for (OrderDetail od : items) {
+                // Sử dụng bookManagementDAO để lấy tên sách nếu cần, hoặc dùng od.getBookName() nếu đã có
+                Book b = bookManagementDAO.getBookById(od.getBookID());
+                String name = (b != null) ? b.getBookName() : od.getBookName() + " (Không rõ tên)"; // Ưu tiên tên từ OrderDetail nếu có
+                int qty = od.getQuantity();
+                BigDecimal unitPrice = od.getUnitPrice();
+                BigDecimal lineTotal = unitPrice.multiply(BigDecimal.valueOf(qty));
+                sum = sum.add(lineTotal);
 
-            txtProducts.append(String.format("%-30s %5d %15s %15s%n",
-                name, qty, fmt.format(unitPrice), fmt.format(lineTotal)));
-        }
-        txtProducts.append("------------------------------------------------------------\n");
-        txtProducts.append(String.format("%-30s %37s%n", "Tổng cộng:", fmt.format(sum)));
-
-        // 3) gán sự kiện in
-        btnPrint.addActionListener((ActionEvent e) -> {
-            boolean ok = InvoicePrinter.printInvoice(orderId);
-            if (!ok) {
-                JOptionPane.showMessageDialog(this,
-                    "In hóa đơn thất bại hoặc bị hủy.",
-                    "Thông báo",
-                    JOptionPane.WARNING_MESSAGE
-                );
+                txtProducts.append(String.format("%-30s %5d %15s %15s%n",
+                    name, qty, currencyFmt.format(unitPrice), currencyFmt.format(lineTotal)));
             }
-                else{
-                    JOptionPane.showMessageDialog(this, "COMPLETE!", "NOTFIFICATION", JOptionPane.INFORMATION_MESSAGE);
-                }
-        });
+            txtProducts.append("------------------------------------------------------------\n");
+            txtProducts.append(String.format("%-30s %37s%n", "Tổng cộng:", currencyFmt.format(sum)));
+            System.out.println("InvoiceDialog.loadData: Đã điền chi tiết sản phẩm.");
+        }
     }
     
     /**
@@ -270,18 +307,14 @@ public class InvoiceDialog extends javax.swing.JDialog {
         /* Create and display the dialog */
         java.awt.EventQueue.invokeLater(new Runnable() {
             public void run() {
-                try {
-                    InvoiceDialog dialog = new InvoiceDialog(null, null);
-                    dialog.addWindowListener(new java.awt.event.WindowAdapter() {
-                        @Override
-                        public void windowClosing(java.awt.event.WindowEvent e) {
-                            System.exit(0);
-                        }
-                    });
-                    dialog.setVisible(true);
-                } catch (SQLException ex) {
-                    Logger.getLogger(InvoiceDialog.class.getName()).log(Level.SEVERE, null, ex);
-                }
+                InvoiceDialog dialog = new InvoiceDialog(null, null);
+                dialog.addWindowListener(new java.awt.event.WindowAdapter() {
+                    @Override
+                    public void windowClosing(java.awt.event.WindowEvent e) {
+                        System.exit(0);
+                    }
+                });
+                dialog.setVisible(true);
             }
         });
     }

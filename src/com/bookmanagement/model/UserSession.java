@@ -5,7 +5,8 @@ import java.util.List;
 import java.util.Set;
 
 public class UserSession {
-
+    
+    
     private static User currentUser;
     private String role;
     private List<String> permissions;
@@ -21,10 +22,6 @@ public class UserSession {
 
     // Truy xuất người dùng hiện tại
     public static User getCurrentUser() {
-        return currentUser;
-    }
-    
-    public User getUser() {
         return currentUser;
     }
     

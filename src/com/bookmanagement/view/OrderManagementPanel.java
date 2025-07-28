@@ -8,170 +8,257 @@ package com.bookmanagement.view;
  *
  * @author ADMIN
  */
-import com.bookmanagement.Dao.BookManagementDAO;
 import com.bookmanagement.Dao.OrderDAO;
-import com.bookmanagement.model.Book;
 import com.bookmanagement.model.Order;
-import com.bookmanagement.model.User;
 import javax.swing.JOptionPane;
 import javax.swing.table.DefaultTableModel;
 import java.awt.Frame;
 import java.sql.SQLException;
+import java.text.NumberFormat;
 import java.util.ArrayList;
+import java.util.Locale;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javax.swing.JButton;
 import javax.swing.SwingUtilities;
+import javax.swing.event.ListSelectionEvent;
+import javax.swing.event.ListSelectionListener;
 
 public class OrderManagementPanel extends javax.swing.JPanel {
 
     /**
      * Creates new form BookPanel
      */
-    OrderDAO orderDAO;
-    private Order order;
+    private static final Logger LOGGER = Logger.getLogger(OrderManagementPanel.class.getName());
+    private OrderDAO orderDAO;
 
     public OrderManagementPanel() {
         initComponents();
-        setSize(800, 500);
+        setSize(800, 500); // Kích thước mặc định của panel
         this.orderDAO = new OrderDAO();
         initTable();
         fillToTable();
+        
+        // Thêm ListSelectionListener cho bảng để kích hoạt/vô hiệu hóa các nút
+        tblOrder.getSelectionModel().addListSelectionListener(new ListSelectionListener() {
+            @Override
+            public void valueChanged(ListSelectionEvent e) {
+                if (!e.getValueIsAdjusting()) { // Đảm bảo sự kiện chỉ kích hoạt một lần khi chọn xong
+                    updateButtonStates();
+                }
+            }
+        });
+        updateButtonStates(); // Cập nhật trạng thái nút ban đầu
     }
 
+    /**
+     * Initializes the table model for orders.
+     */
     private void initTable() {
         DefaultTableModel model = new DefaultTableModel(
-                new Object[]{"ORDER ID", "ORDER DATE", "TOTAL", "ROLE", "CUSTOMER ID"}, 0
+                new Object[]{"Mã đơn hàng", "Ngày đặt hàng", "Tổng tiền", "Mã khách hàng", "Trạng thái"}, 0
         ) {
             @Override
             public boolean isCellEditable(int row, int column) {
-                return false;
+                return false; // Cells are not editable directly
             }
         };
         tblOrder.setModel(model);
-        btnPrint.setEnabled(false);
     }
 
+    /**
+     * Fills the order table with data from the database.
+     */
     private void fillToTable() {
         DefaultTableModel tableModel = (DefaultTableModel) tblOrder.getModel();
-        tableModel.setRowCount(0);
+        tableModel.setRowCount(0); // Clear existing rows
 
-        for (Order order : orderDAO.getAll()) {
-            tableModel.addRow(new Object[]{
-                order.getOrderId(),
-                order.getOrderDate(),
-                order.getTotalMoney(),
-                order.getRole(),
-                order.getCustomerId()
-            });
+        try {
+            ArrayList<Order> allOrders = (ArrayList<Order>) orderDAO.getAllOrders();
+            for (Order order : allOrders) {
+                tableModel.addRow(new Object[]{
+                    order.getOrderID(), // Sử dụng getOrderID()
+                    order.getOrderDate(), // Sử dụng getOrderDate()
+                    formatCurrency(order.getTotalAmount()), // Sử dụng getTotalAmount() và định dạng tiền tệ
+                    order.getCustomerID(), // Sử dụng getCustomerID()
+                    order.getStatus() // Sử dụng getStatus()
+                });
+            }
+        } catch (Exception e) {
+            LOGGER.log(Level.SEVERE, "Lỗi khi tải dữ liệu đơn hàng: " + e.getMessage(), e);
+            JOptionPane.showMessageDialog(this, "Lỗi khi tải dữ liệu đơn hàng: " + e.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
         }
-        btnPrint.setEnabled(false);
+    }
+    
+    /**
+     * Updates the enabled state of buttons based on table selection.
+     */
+    private void updateButtonStates() {
+        int selectedRow = tblOrder.getSelectedRow();
+        boolean isRowSelected = selectedRow != -1;
+        
+        btnCancel.setEnabled(isRowSelected);
+        btnDetail.setEnabled(isRowSelected);
+        btnPrint.setEnabled(isRowSelected);
     }
 
-    private Order getSelectedOrder() {
-        int row = tblOrder.getSelectedRow();
-        if (row < 0) {
-            return null;
-        }
-        String id = tblOrder.getValueAt(row, 0).toString(); // Cột 0 chứa ORDER ID
-        return orderDAO.findById(id);
-    }
-
+    /**
+     * Performs a search for orders based on the search term.
+     */
     public void search() {
         String searchTerm = txtSearch.getText().trim();
         ArrayList<Order> searchResults;
 
-        if (searchTerm.isEmpty()) {
-            searchResults = orderDAO.getAll();
-        } else {
-            searchResults = orderDAO.searchOrder(searchTerm);
-        }
-
-        DefaultTableModel model = (DefaultTableModel) tblOrder.getModel();
-        model.setRowCount(0);
-
-        if (searchResults.isEmpty() && !searchTerm.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "NOT FOUND BOOK WITH: '" + searchTerm + "'.", "NOTIFICATION!", JOptionPane.INFORMATION_MESSAGE);
-        }
-
-        for (Order order : searchResults) {
-            model.addRow(new Object[]{
-                order.getOrderId(),
-                order.getOrderDate(),
-                order.getTotalMoney(),
-                order.getRole(),
-                order.getCustomerId()
-            });
-        }
-    }
-
-    private void showOrderDialog(Order existing) {
-        OrderDialog dialog = new OrderDialog(
-                SwingUtilities.getWindowAncestor(this),
-                existing
-        );
-        dialog.setVisible(true);
-
-        if (dialog.isSucceeded()) {
-            Order o = dialog.getOrder();
-            boolean ok = (existing == null)
-                    ? orderDAO.insertOrder(o)
-                    : orderDAO.updateOrder(o);
-            if (ok) {
-                JOptionPane.showMessageDialog(
-                        this,
-                        existing == null ? "Tạo đơn hàng thành công." : "Cập nhật đơn hàng thành công."
-                );
-                fillToTable();
-            }
-        }
-    }
-
-    // Lấy đơn hàng đang chọn, trả về null nếu chưa chọn
-    private Order getSelectOrder() {
-        int row = tblOrder.getSelectedRow();
-        if (row < 0) {
-            return null;
-        }
-        String id = tblOrder.getValueAt(row, 1).toString();
-        return orderDAO.findById(id);
-    }
-
-    // Xóa đơn hàng
-    private void deleteOrder() {
-        Order o = getSelectOrder();
-        if (o == null) {
-            return;
-        }
-        if (orderDAO.deleteOrder(o.getOrderId())) {
-            JOptionPane.showMessageDialog(this, "Hủy đơn hàng thành công.");
-            fillToTable();
-        }
-    }
-
-    // In hóa đơn
-    private void printOrder() {
-        Order o = getSelectedOrder();
-        if (o == null) {
-            JOptionPane.showMessageDialog(this, "Vui lòng chọn đơn hàng để in hóa đơn.");
-            return;
-        }
-
-        boolean ok = InvoicePrinter.printInvoice(o.getOrderId());
-        if (ok) {
-            // nếu in thành công, chuyển trạng thái
-            if (orderDAO.updateStatus(o.getOrderId(), "Đã thanh toán")) {
-                JOptionPane.showMessageDialog(this, "In hóa đơn thành công và đã cập nhật trạng thái.");
-                fillToTable();
+        try {
+            if (searchTerm.isEmpty()) {
+                searchResults = (ArrayList<Order>) orderDAO.getAllOrders(); // If empty, display all
             } else {
-                JOptionPane.showMessageDialog(this, "In thành công nhưng cập nhật trạng thái thất bại.");
+                // Assuming searchOrder can search by Order ID or Customer ID
+                searchResults = orderDAO.searchOrder(searchTerm); 
+            }
+
+            DefaultTableModel model = (DefaultTableModel) tblOrder.getModel();
+            model.setRowCount(0); // Clear old data
+
+            if (searchResults.isEmpty() && !searchTerm.isEmpty()) {
+                JOptionPane.showMessageDialog(this, "Không tìm thấy đơn hàng với từ khóa: '" + searchTerm + "'.", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
+            }
+
+            for (Order order : searchResults) {
+                model.addRow(new Object[]{
+                    order.getOrderID(), // Sử dụng getOrderID()
+                    order.getOrderDate(), // Sử dụng getOrderDate()
+                    formatCurrency(order.getTotalAmount()), // Sử dụng getTotalAmount() và định dạng tiền tệ
+                    order.getCustomerID(), // Sử dụng getCustomerID()
+                    order.getStatus() // Sử dụng getStatus()
+                });
+            }
+            updateButtonStates(); // Update button states after search
+        } catch (Exception e) {
+            LOGGER.log(Level.SEVERE, "Lỗi khi tìm kiếm đơn hàng: " + e.getMessage(), e);
+            JOptionPane.showMessageDialog(this, "Lỗi khi tìm kiếm đơn hàng: " + e.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+    
+    /**
+     * Opens the OrderDialog to create a new order.
+     */
+    private void createNewOrder() {
+        Frame parentFrame = (Frame) SwingUtilities.getWindowAncestor(this);
+        // Đảm bảo OrderDialog là modal và không truyền Order cũ (tạo mới)
+        OrderDialog dialog = new OrderDialog(parentFrame, true); 
+        dialog.setVisible(true);
+        // Giả định OrderDialog có phương thức isSucceeded() để kiểm tra xem thao tác có thành công không
+        if (dialog.isSucceeded()) { 
+            fillToTable(); // Refresh table after successful creation
+            JOptionPane.showMessageDialog(this, "Đơn hàng đã được tạo thành công!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
+        } else {
+             JOptionPane.showMessageDialog(this, "Tạo đơn hàng bị hủy hoặc thất bại.", "Thông báo", JOptionPane.WARNING_MESSAGE);
+        }
+        updateButtonStates(); // Cập nhật trạng thái nút sau khi dialog đóng
+    }
+    
+    /**
+     * Displays the invoice detail dialog for the selected order.
+     */
+    private void showInvoiceDetail() {
+        int selectedRow = tblOrder.getSelectedRow();
+        if (selectedRow != -1) {
+            String orderId = (String) tblOrder.getValueAt(selectedRow, 0); // Lấy ID đơn hàng từ cột đầu tiên
+            try {
+                Order order = orderDAO.getOrderByOrderId(orderId); // Lấy đối tượng Order từ DAO
+                if (order != null) {
+                    // Tạo OrderDialog ở chế độ xem chi tiết
+                    OrderDialog orderDialog = new OrderDialog((Frame) SwingUtilities.getWindowAncestor(this), order, true); // Truyền đối tượng Order và đặt chế độ xem
+                    orderDialog.setVisible(true);
+                    // Không cần fillToTable() ở đây vì chế độ xem không thay đổi dữ liệu bảng chính
+                } else {
+                    JOptionPane.showMessageDialog(this, "Không tìm thấy đơn hàng với mã: " + orderId + ". Dữ liệu có thể đã bị xóa hoặc không đồng bộ.", "Lỗi", JOptionPane.ERROR_MESSAGE);
+                }
+            } catch (SQLException ex) {
+                LOGGER.log(Level.SEVERE, "Lỗi khi tải chi tiết đơn hàng: " + orderId, ex);
+                JOptionPane.showMessageDialog(this, "Lỗi khi tải chi tiết đơn hàng: " + ex.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
             }
         } else {
-            // in bị hủy hoặc lỗi
-            JOptionPane.showMessageDialog(this, "Không in hóa đơn.", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Vui lòng chọn một đơn hàng để xem chi tiết.", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
+        }
+    }
+    
+    /**
+     * Prints the invoice for the selected order.
+     */
+    private void printOrder() {
+        int selectedRow = tblOrder.getSelectedRow();
+        if (selectedRow != -1) {
+            String orderId = (String) tblOrder.getValueAt(selectedRow, 0); // Lấy ID đơn hàng từ cột đầu tiên
+            try {
+                // Kiểm tra xem đơn hàng có tồn tại và không phải là "Đã hủy" không
+                Order order = orderDAO.getOrderByOrderId(orderId);
+                if (order == null) {
+                    JOptionPane.showMessageDialog(this, "Không tìm thấy đơn hàng để in.", "Lỗi", JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
+                if ("Đã hủy".equals(order.getStatus())) {
+                    JOptionPane.showMessageDialog(this, "Không thể in hóa đơn cho đơn hàng đã hủy.", "Cảnh báo", JOptionPane.WARNING_MESSAGE);
+                    return;
+                }
+                
+                // Gọi lớp InvoicePrinter để in hóa đơn
+                boolean printed = InvoicePrinter.printInvoice(orderId);
+                if (printed) {
+                    JOptionPane.showMessageDialog(this, "Đã gửi lệnh in hóa đơn cho đơn hàng " + orderId, "Thông báo", JOptionPane.INFORMATION_MESSAGE);
+                } else {
+                    // Thông báo đã được xử lý trong InvoicePrinter.printInvoice
+                }
+            } catch (SQLException ex) {
+                LOGGER.log(Level.SEVERE, "Lỗi khi chuẩn bị in đơn hàng: " + orderId, ex);
+                JOptionPane.showMessageDialog(this, "Lỗi khi chuẩn bị in đơn hàng: " + ex.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
+            }
+        } else {
+            JOptionPane.showMessageDialog(this, "Vui lòng chọn một đơn hàng để in.", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
         }
     }
 
+    /**
+     * Xử lý chức năng hủy đơn hàng được chọn.
+     */
+    private void cancelOrder() {
+        DefaultTableModel tableModel = (DefaultTableModel) tblOrder.getModel();
+        int selectedRow = tblOrder.getSelectedRow();
+        if (selectedRow == -1) {
+            JOptionPane.showMessageDialog(this, "Vui lòng chọn một đơn hàng để hủy.", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+        
+        String orderId = (String) tableModel.getValueAt(selectedRow, 0);
+        String currentStatus = (String) tableModel.getValueAt(selectedRow, 4); // Giả sử trạng thái ở cột thứ 4
+
+        if ("Đã hủy".equals(currentStatus) || "Đã hoàn thành".equals(currentStatus)) {
+            JOptionPane.showMessageDialog(this, "Không thể hủy đơn hàng đã " + currentStatus + ".", "Cảnh báo", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        int confirm = JOptionPane.showConfirmDialog(this, "Bạn có chắc chắn muốn hủy đơn hàng " + orderId + " không?", "Xác nhận hủy", JOptionPane.YES_NO_OPTION);
+        if (confirm == JOptionPane.YES_OPTION) {
+            try {
+                boolean success = orderDAO.updateOrderStatus(orderId, "Đã hủy"); // Cập nhật trạng thái thành "Đã hủy"
+                if (success) {
+                    JOptionPane.showMessageDialog(this, "Đơn hàng " + orderId + " đã được hủy thành công.", "Thành công", JOptionPane.INFORMATION_MESSAGE);
+                    fillToTable(); // Làm mới bảng
+                } else {
+                    JOptionPane.showMessageDialog(this, "Không thể hủy đơn hàng " + orderId + ".", "Lỗi", JOptionPane.ERROR_MESSAGE);
+                }
+            } catch (SQLException ex) {
+                LOGGER.log(Level.SEVERE, "Lỗi khi hủy đơn hàng: " + orderId, ex);
+                JOptionPane.showMessageDialog(this, "Lỗi khi hủy đơn hàng: " + ex.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
+            }
+        }
+    }
+    
+    // Phương thức trợ giúp để định dạng tiền tệ
+    private String formatCurrency(java.math.BigDecimal amount) {
+        NumberFormat currencyFormatter = NumberFormat.getCurrencyInstance(new Locale("vi", "VN"));
+        return currencyFormatter.format(amount);
+    }
     /**
      * This method is called from within the constructor to initialize the form.
      * WARNING: Do NOT modify this code. The content of this method is always
@@ -293,45 +380,28 @@ public class OrderManagementPanel extends javax.swing.JPanel {
     }//GEN-LAST:event_txtSearchActionPerformed
 
     private void tblOrderMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_tblOrderMouseClicked
-        if (tblOrder.getSelectedRow() != -1) {
-            btnPrint.setEnabled(true);
-        } else {
-            btnPrint.setEnabled(false);
-        }
+        updateButtonStates();
     }//GEN-LAST:event_tblOrderMouseClicked
 
     private void btnCreateOrderActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnCreateOrderActionPerformed
         // TODO add your handling code here:
-        showOrderDialog(null);
+        createNewOrder();
     }//GEN-LAST:event_btnCreateOrderActionPerformed
 
     private void btnDetailActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnDetailActionPerformed
-        Order selected = getSelectedOrder();
-        if (selected == null) {
-            JOptionPane.showMessageDialog(this, "Vui lòng chọn đơn hàng.");
-            return;
-        }
-        try {
-            InvoiceDialog dlg = new InvoiceDialog(
-                    SwingUtilities.getWindowAncestor(this),
-                    selected.getOrderId()
-            );
-            dlg.setVisible(true);
-        } catch (SQLException ex) {
-            JOptionPane.showMessageDialog(this,
-                    "Lỗi khi mở hóa đơn: " + ex.getMessage(),
-                    "Lỗi", JOptionPane.ERROR_MESSAGE);
-        }
+        showInvoiceDetail();
     }//GEN-LAST:event_btnDetailActionPerformed
 
     private void btnCancelActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnCancelActionPerformed
         // TODO add your handling code here:
-        deleteOrder();
+        cancelOrder(); 
     }//GEN-LAST:event_btnCancelActionPerformed
 
     private void btnRefreshActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnRefreshActionPerformed
         // TODO add your handling code here:
         fillToTable();
+        txtSearch.setText(""); // Xóa nội dung tìm kiếm
+        updateButtonStates(); 
     }//GEN-LAST:event_btnRefreshActionPerformed
 
     private void spBookTableMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_spBookTableMouseClicked
@@ -339,9 +409,11 @@ public class OrderManagementPanel extends javax.swing.JPanel {
         if (tblOrder.getSelectedRow() != -1) {
             btnCancel.setEnabled(true);
             btnDetail.setEnabled(true);
+            btnPrint.setEnabled(true); // Kích hoạt nút in khi có hàng được chọn
         } else {
             btnCancel.setEnabled(false);
             btnDetail.setEnabled(false);
+            btnPrint.setEnabled(false); // Vô hiệu hóa nút in khi không có hàng được chọn
         }
     }//GEN-LAST:event_spBookTableMouseClicked
 

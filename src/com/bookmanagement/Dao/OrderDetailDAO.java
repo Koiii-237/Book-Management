@@ -1,115 +1,114 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package com.bookmanagement.Dao;
 
 import com.bookmanagement.DBPool.DBConnection;
 import com.bookmanagement.model.OrderDetail;
-import java.util.logging.Logger;
+
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
-import java.sql.Statement;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
- *
- * @author ADMIN
+ * Lớp OrderDetailDAO cung cấp các phương thức để tương tác với bảng ChiTietDonHang
+ * (Order Detail) trong cơ sở dữ liệu.
  */
 public class OrderDetailDAO {
+
     private static final Logger LOGGER = Logger.getLogger(OrderDetailDAO.class.getName());
 
-    // Create
-    public void insert(OrderDetail d) throws SQLException {
-        d.setId(DBConnection.generateID("ChiTietDonHang","MaCTDH","CTDH"));
-        String sql="INSERT INTO ChiTietDonHang(MaCTDH,SoLuong,ThanhTien,DonGia,MaDH,MaSach) VALUES(?,?,?,?,?,?)";
-        try (Connection conn=DBConnection.getConnection(); PreparedStatement ps=conn.prepareStatement(sql)) {
-            ps.setString(1,d.getId());
-            ps.setInt(2,d.getQuantity());
-            ps.setBigDecimal(3,d.getCoin());
-            ps.setBigDecimal(4,d.getPrice());
-            ps.setString(5,d.getOrderId());
-            ps.setString(6,d.getBookId());
-            ps.executeUpdate();
+    public boolean insertOrderDetail(OrderDetail orderDetail) {
+        String sql = "INSERT INTO ChiTietDonHang (MaCTDH, MaDH, MaSach, SoLuong, DonGia, ThanhTien) VALUES (?, ?, ?, ?, ?, ?)";
+        try (Connection con = DBConnection.getConnection(); PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setString(1, orderDetail.getOrderDetailID());
+            ps.setString(2, orderDetail.getOrderID());
+            ps.setString(3, orderDetail.getBookID());
+            ps.setInt(4, orderDetail.getQuantity());
+            ps.setBigDecimal(5, orderDetail.getUnitPrice());
+            ps.setBigDecimal(6, orderDetail.getSubtotal());
+            int rowsAffected = ps.executeUpdate();
+            return rowsAffected > 0;
+        } catch (SQLException ex) {
+            LOGGER.log(Level.SEVERE, "Lỗi khi thêm chi tiết đơn hàng: " + orderDetail.getOrderDetailID(), ex);
+            ex.printStackTrace();
+            return false;
         }
     }
 
-    // Read by ID
-    public OrderDetail findById(String id) throws SQLException {
-        String sql="SELECT * FROM ChiTietDonHang WHERE MaCTDH=?";
-        try (Connection conn=DBConnection.getConnection(); PreparedStatement ps=conn.prepareStatement(sql)) {
-            ps.setString(1,id);
-            try (ResultSet rs=ps.executeQuery()) {
-                if (rs.next()) {
-                    return new OrderDetail(
-                        rs.getString("MaCTDH"),
-                        rs.getInt("SoLuong"),
-                        rs.getBigDecimal("ThanhTien"),
-                        rs.getBigDecimal("DonGia"),
-                        rs.getString("MaDH"),
-                        rs.getString("MaSach")
-                    );
-                }
-            }
-        }
-        return null;
-    }
-
-    // Read all
-    public List<OrderDetail> getAll() throws SQLException {
-        List<OrderDetail> list = new ArrayList<>();
-        String sql="SELECT * FROM ChiTietDonHang";
-        try (Connection conn=DBConnection.getConnection(); Statement st=conn.createStatement(); ResultSet rs=st.executeQuery(sql)) {
-            while (rs.next()) {
-                list.add(new OrderDetail(
-                    rs.getString("MaCTDH"),
-                    rs.getInt("SoLuong"),
-                    rs.getBigDecimal("ThanhTien"),
-                    rs.getBigDecimal("DonGia"),
-                    rs.getString("MaDH"),
-                    rs.getString("MaSach")
-                ));
-            }
-        }
-        return list;
-    }
-
-    // Read by Order
-    public List<OrderDetail> findByOrder(String orderId) throws SQLException {
-        List<OrderDetail> list = new ArrayList<>();
-        String sql="SELECT * FROM ChiTietDonHang WHERE MaDH=?";
-        try (Connection conn=DBConnection.getConnection(); PreparedStatement ps=conn.prepareStatement(sql)) {
-            ps.setString(1,orderId);
-            try (ResultSet rs=ps.executeQuery()) {
+    /**
+     * Lấy danh sách chi tiết đơn hàng dựa trên ID đơn hàng.
+     *
+     * @param orderId ID của đơn hàng.
+     * @return Danh sách các đối tượng OrderDetail.
+     * @throws SQLException Nếu có lỗi xảy ra trong quá trình truy vấn cơ sở dữ liệu.
+     */
+    public List<OrderDetail> getOrderDetailByOrderId(String orderId) throws SQLException {
+        List<OrderDetail> details = new ArrayList<>();
+        // SQL để lấy chi tiết đơn hàng, kết hợp với bảng Sach để lấy TenSach.
+        String sql = "SELECT od.MaCTDH, od.MaDH, od.MaSach, od.SoLuong, od.DonGia, od.ThanhTien, b.TenSach " +
+                     "FROM ChiTietDonHang od JOIN Sach b ON od.MaSach = b.MaSach WHERE od.MaDH = ?";
+        try (Connection conn = DBConnection.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, orderId);
+            try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
-                    list.add(new OrderDetail(
+                    details.add(new OrderDetail(
                         rs.getString("MaCTDH"),
                         rs.getInt("SoLuong"),
-                        rs.getBigDecimal("ThanhTien"),
                         rs.getBigDecimal("DonGia"),
+                        rs.getBigDecimal("ThanhTien"),
                         rs.getString("MaDH"),
-                        rs.getString("MaSach")
+                        rs.getString("MaSach"),
+                        rs.getString("TenSach") // Lấy tên sách từ bảng Sach
                     ));
                 }
             }
+        } catch (SQLException ex) {
+            LOGGER.log(Level.SEVERE, "Lỗi khi lấy chi tiết đơn hàng theo ID đơn hàng: " + orderId, ex);
+            throw ex;
         }
-        return list;
+        return details;
     }
 
-    // Update
-    public void update(OrderDetail d) throws SQLException {
-        String sql="UPDATE ChiTietDonHang SET SoLuong=?,ThanhTien=?,DonGia=?,MaDH=?,MaSach=? WHERE MaCTDH=?";
-        try (Connection conn=DBConnection.getConnection(); PreparedStatement ps=conn.prepareStatement(sql)) {
-            ps.setInt(1, d.getQuantity());
-            ps.setBigDecimal(2, d.getCoin());
-            ps.setBigDecimal(3, d.getPrice());
-            ps.setString(4, d.getOrderId());
-            ps.setString(5, d.getBookId());
-            ps.setString(6, d.getId());
-            ps.executeUpdate();
+    /**
+     * Xóa tất cả chi tiết đơn hàng cho một đơn hàng cụ thể.
+     * Thường được gọi trước khi thêm lại các chi tiết mới khi cập nhật đơn hàng.
+     *
+     * @param orderId Mã đơn hàng.
+     * @return true nếu xóa thành công, false nếu có lỗi.
+     */
+    public boolean deleteOrderDetailsByOrderId(String orderId) {
+        String query = "DELETE FROM ChiTietDonHang WHERE MaDH = ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(query)) {
+
+            stmt.setString(1, orderId);
+            int rowsAffected = stmt.executeUpdate();
+            return rowsAffected > 0;
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Lỗi khi xóa chi tiết đơn hàng cho Order ID: " + orderId, e);
+            return false;
         }
+    }
+
+    /**
+     * Ánh xạ (map) một hàng từ ResultSet sang đối tượng OrderDetail.
+     *
+     * @param rs ResultSet chứa dữ liệu chi tiết đơn hàng.
+     * @return Đối tượng OrderDetail được tạo từ dữ liệu ResultSet.
+     * @throws SQLException Nếu có lỗi khi truy cập dữ liệu từ ResultSet.
+     */
+    private OrderDetail mapOrderDetailFromResultSet(ResultSet rs) throws SQLException {
+        OrderDetail detail = new OrderDetail();
+        detail.setOrderDetailID(rs.getString("MaCTDH"));
+        detail.setQuantity(rs.getInt("SoLuong"));
+        detail.setUnitPrice(rs.getBigDecimal("DonGia"));
+        detail.setSubtotal(rs.getBigDecimal("ThanhTien"));
+        detail.setOrderID(rs.getString("MaDH"));
+        detail.setBookID(rs.getString("MaSach"));
+        detail.setBookName(rs.getString("TenSach")); // Lấy tên sách từ JOIN
+        return detail;
     }
 }

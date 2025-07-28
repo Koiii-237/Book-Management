@@ -117,26 +117,27 @@ public class CustomerDAO {
         }
     }
     
-    public Customer getCustomerById(String id) {
-        String sql = "SELECT * FROM KhachHang WHERE MaKH = ?";
+    public Customer getCustomerById(String customerId) throws SQLException {
+        Customer customer = null;
+        String sql = "SELECT MaKH, TenKH, DiaChi, SoDienThoai FROM KhachHang WHERE MaKH = ?";
         try (Connection conn = DBConnection.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-
-            pstmt.setString(1, id);
-            ResultSet rs = pstmt.executeQuery();
-
-            if (rs.next()) {
-                return new Customer(
-                    rs.getString("MaKH"),
-                    rs.getString("TenKH"),
-                    rs.getString("DiaChi"),
-                    rs.getString("SDT")
-                );
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, customerId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    customer = new Customer(
+                        rs.getString("MaKH"),
+                        rs.getString("TenKH"),
+                        rs.getString("DiaChi"),
+                        rs.getString("SoDienThoai")
+                    );
+                }
             }
-        } catch (SQLException e) {
-            LOGGER.log(Level.SEVERE, "Lỗi khi lấy khách hàng theo ID: " + e.getMessage(), e);
+        } catch (SQLException ex) {
+            LOGGER.log(Level.SEVERE, "Lỗi khi lấy khách hàng theo ID: " + customerId, ex);
+            throw ex;
         }
-        return null;
+        return customer;
     }
     
     public ArrayList<Customer> getAllCustomers() {

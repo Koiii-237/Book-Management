@@ -18,20 +18,19 @@ public class User {
     private String password;
     private String fullName;
     private String email;
-    private boolean activated;
     private List<String> roles;
 
     public User() {
+        this.roles = new ArrayList<>();
     }
 
-    public User(String userID, String userName, String password, String fullName,
-                String email, boolean activated) {
+    public User(String userID, String userName, String password, String fullName, String email, List<String> roles) {
         this.userID = userID;
         this.userName = userName;
         this.password = password;
         this.fullName = fullName;
         this.email = email;
-        this.activated = activated;
+        this.roles = roles;
     }
 
     // Getters và Setters
@@ -75,25 +74,12 @@ public class User {
         this.email = email;
     }
 
-    public boolean isActivated() {
-        return activated;
-    }
-
-    public void setActivated(boolean activated) {
-        this.activated = activated;
-    }
-
     public List<String> getRoles() {
         return roles;
     }
 
     public void setRoles(List<String> roles) {
         this.roles = roles;
-    }
-
-    // Thêm phương thức tiện ích nếu cần
-    public boolean hasRole(String roleCode) {
-        return roles != null && roles.contains(roleCode);
     }
     
     public boolean hasPermission(String per) {

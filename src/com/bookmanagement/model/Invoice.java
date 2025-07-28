@@ -33,6 +33,10 @@ public class Invoice {
         this.orderId = orderId;
     }
 
+    public Invoice(String generateUniqueId, String orderId, LocalDate now, BigDecimal totalAmount, BigDecimal customerMoney, BigDecimal subtract) {
+        throw new UnsupportedOperationException("Not supported yet.");
+    }
+
     public String getInvoiceId() {
         return invoiceId;
     }

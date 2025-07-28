@@ -1,41 +1,34 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package com.bookmanagement.model;
 
 import java.math.BigDecimal;
-import java.sql.Date;
 import java.time.LocalDate;
+import java.util.List; // Đảm bảo có import này nếu bạn có các thuộc tính List khác
 
-/**
- *
- * @author ADMIN
- */
 public class Order {
-    private String orderId;
+    private String orderID;
     private LocalDate orderDate;
-    private double totalMoney;
-    private String role;
-    private String customerId;
+    private BigDecimal totalAmount;
+    private String customerID;
+    private String status; 
 
     public Order() {
     }
 
-    public Order(String orderId, LocalDate orderDate, double totalMoney, String role, String customerId) {
-        this.orderId = orderId;
+    public Order(String orderID, LocalDate orderDate, BigDecimal totalAmount, String customerID, String status) {
+        this.orderID = orderID;
         this.orderDate = orderDate;
-        this.totalMoney = totalMoney;
-        this.role = role;
-        this.customerId = customerId;
+        this.totalAmount = totalAmount;
+        this.customerID = customerID;
+        this.status = status; 
     }
 
-    public String getOrderId() {
-        return orderId;
+    // Getters và Setters
+    public String getOrderID() {
+        return orderID;
     }
 
-    public void setOrderId(String orderId) {
-        this.orderId = orderId;
+    public void setOrderID(String orderID) {
+        this.orderID = orderID;
     }
 
     public LocalDate getOrderDate() {
@@ -46,29 +39,29 @@ public class Order {
         this.orderDate = orderDate;
     }
 
-    public double getTotalMoney() {
-        return totalMoney;
+    public BigDecimal getTotalAmount() {
+        return totalAmount;
     }
 
-    public void setTotalMoney(double totalMoney) {
-        this.totalMoney = totalMoney;
+    public void setTotalAmount(BigDecimal totalAmount) {
+        this.totalAmount = totalAmount;
     }
 
-    public String getRole() {
-        return role;
+    public String getCustomerID() {
+        return customerID;
     }
 
-    public void setRole(String role) {
-        this.role = role;
+    public void setCustomerID(String customerID) {
+        this.customerID = customerID;
     }
 
-    public String getCustomerId() {
-        return customerId;
+    // <-- THÊM GETTER VÀ SETTER CHO STATUS DƯỚI ĐÂY
+    public String getStatus() {
+        return status;
     }
 
-    public void setCustomerId(String customerId) {
-        this.customerId = customerId;
+    public void setStatus(String status) {
+        this.status = status;
     }
-
-    
+    // Hết phần thêm
 }

@@ -16,7 +16,10 @@ import com.bookmanagement.model.User;
 import javax.swing.JOptionPane;
 import javax.swing.table.DefaultTableModel;
 import java.awt.Frame;
+import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.swing.JButton;
 import javax.swing.SwingUtilities;
 
@@ -105,27 +108,31 @@ public class CustomerManagementPanel extends javax.swing.JPanel {
     }
     
     public void updateCustomer(){
-        int selectedRow = tblCustomer.getSelectedRow();
-        if (selectedRow == -1) {
-            JOptionPane.showMessageDialog(this, "Please choose book to delete", "NOTIFICATION!", JOptionPane.WARNING_MESSAGE);
-            return;
-        }
-
-        DefaultTableModel model = (DefaultTableModel) tblCustomer.getModel();
-        String idToEdit = model.getValueAt(selectedRow, 0).toString();
-
-        Customer csToEdit = csDAO.getCustomerById(idToEdit);
-
-        if (csToEdit != null) {
-            Frame parentFrame = (Frame) SwingUtilities.getWindowAncestor(this);
-            CustomerManagementDialog dialog = new CustomerManagementDialog(parentFrame, true, csToEdit);
-            dialog.setVisible(true);
-
-            if (dialog.isDataSaved()) {
-                fillToTable();
+        try {
+            int selectedRow = tblCustomer.getSelectedRow();
+            if (selectedRow == -1) {
+                JOptionPane.showMessageDialog(this, "Please choose book to delete", "NOTIFICATION!", JOptionPane.WARNING_MESSAGE);
+                return;
             }
-        } else {
-            JOptionPane.showMessageDialog(this, "NO FOUND BOOK TO UPDATE.", "ERROR!", JOptionPane.ERROR_MESSAGE);
+            
+            DefaultTableModel model = (DefaultTableModel) tblCustomer.getModel();
+            String idToEdit = model.getValueAt(selectedRow, 0).toString();
+            
+            Customer csToEdit = csDAO.getCustomerById(idToEdit);
+            
+            if (csToEdit != null) {
+                Frame parentFrame = (Frame) SwingUtilities.getWindowAncestor(this);
+                CustomerManagementDialog dialog = new CustomerManagementDialog(parentFrame, true, csToEdit);
+                dialog.setVisible(true);
+                
+                if (dialog.isDataSaved()) {
+                    fillToTable();
+                }
+            } else {
+                JOptionPane.showMessageDialog(this, "NO FOUND BOOK TO UPDATE.", "ERROR!", JOptionPane.ERROR_MESSAGE);
+            }
+        } catch (SQLException ex) {
+            Logger.getLogger(CustomerManagementPanel.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
     

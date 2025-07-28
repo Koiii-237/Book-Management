@@ -1,70 +1,63 @@
 /*
  * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/GUIForms/JFrame.java to edit this template
+ * Click nbfs://nbhost/SystemFileSystem/Templates/GUIForms/JPanel.java to edit this template
  */
 package com.bookmanagement.view;
 
-import com.bookmanagement.service.AuthService;
-import com.bookmanagement.Dao.UserDAO;
-import com.bookmanagement.model.User;
 import com.bookmanagement.model.UserSession;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
-import javax.swing.JFrame;
-import javax.swing.JOptionPane;
-import javax.swing.UIManager;
 import com.bookmanagement.service.AuthService;
+import javax.swing.JOptionPane;
 
 /**
  *
  * @author ADMIN
  */
-public class Login extends javax.swing.JFrame {
+public class LoginPanel extends javax.swing.JPanel {
 
     /**
-     * Creates new form Login
+     * Creates new form LoginPanel
      */
-    private User user;
-    public Login() {
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setTitle("LOGIN TO SYSTEM BOOK MANAGEMENT");
-        setSize(800, 600);
-        initComponents();
-        setLocationRelativeTo(null);
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+    private MainFrame mainFrame;
 
-        try {
-            for (UIManager.LookAndFeelInfo info : UIManager.getInstalledLookAndFeels()) {
-                if ("Nimbus".equals(info.getName())) {
-                    UIManager.setLookAndFeel(info.getClassName());
-                    break;
-                }
-            }
-        } catch (Exception e) {
-            System.err.println("Không thể thiết lập Nimbus Look and Feel: " + e.getMessage());
+    public LoginPanel(MainFrame mf) {
+        this.mainFrame = mf;
+        initComponents();
+    }
+
+    private void performLogin() {
+        String username = txtUserName.getText().trim();
+        String password = new String(txtPassword.getPassword());
+        
+        if (username.isEmpty() || password.isEmpty()) {
+            lblDisplayResult.setText("Vui lòng nhập đủ tên đăng nhập và mật khẩu.");
+            return;
         }
         
+        System.out.println("Attempting login for user: " + username);
+        // Gọi AuthService để đăng nhập và lấy UserSession
+        UserSession session = AuthService.login(username, password);
+
+        if (session != null) {
+            System.out.println("Login successful. Session is not null. Session hash: " + session.hashCode());
+            
+            // Lấy thể hiện HomePanel đã tồn tại từ MainFrame
+            HomePanel home = mainFrame.getHomePanel(); 
+            System.out.println("Retrieved HomePanel. HomePanel hash: " + (home != null ? home.hashCode() : "null"));
+
+            if (home != null) { // Thêm kiểm tra null cho 'home' để tránh NullPointerException
+                home.setSessionAndPermissions(session);
+                System.out.println("Calling showHome on MainFrame.");
+                mainFrame.showHome();
+            } else {
+                System.err.println("Error: HomePanel is null after mainFrame.getHomePanel(). This indicates a serious initialization issue.");
+                JOptionPane.showMessageDialog(this, "Lỗi hệ thống: Không thể tải giao diện chính. Vui lòng khởi động lại ứng dụng.");
+            }
+        } else {
+            System.out.println("Login failed: Invalid username or password.");
+            JOptionPane.showMessageDialog(this, "Sai tên đăng nhập hoặc mật khẩu");
+        }
     }
 
-    
-    private void performLogin() {
-    String username = txtUserName.getText().trim();
-    String password = new String(txtPassword.getPassword());
-    
-    // Kiểm tra login (giả sử login thành công)
-    UserSession session = AuthService.login(username, password); // Hoặc code tự tạo UserSession
-
-    if (session != null) {
-        MainWindow main = new MainWindow();
-        main.setSessionAndPermissions(session);
-        main.setVisible(true);
-        this.dispose();
-    } else {
-        JOptionPane.showMessageDialog(this, "Sai tên đăng nhập hoặc mật khẩu");
-    }
-}
-
-    
     /**
      * This method is called from within the constructor to initialize the form.
      * WARNING: Do NOT modify this code. The content of this method is always
@@ -84,10 +77,7 @@ public class Login extends javax.swing.JFrame {
         lblPassword = new javax.swing.JLabel();
         lblUserName = new javax.swing.JLabel();
 
-        setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
-        setTitle("LOGIN");
-        setMinimumSize(new java.awt.Dimension(800, 600));
-        setResizable(false);
+        setLayout(new java.awt.BorderLayout());
 
         pnLogin.setBorder(javax.swing.BorderFactory.createEmptyBorder(25, 25, 25, 25));
         pnLogin.setLayout(new java.awt.GridBagLayout());
@@ -162,9 +152,7 @@ public class Login extends javax.swing.JFrame {
         gridBagConstraints.insets = new java.awt.Insets(10, 10, 10, 10);
         pnLogin.add(lblUserName, gridBagConstraints);
 
-        getContentPane().add(pnLogin, java.awt.BorderLayout.CENTER);
-
-        pack();
+        add(pnLogin, java.awt.BorderLayout.CENTER);
     }// </editor-fold>//GEN-END:initComponents
 
     private void btnLoginActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnLoginActionPerformed
@@ -172,40 +160,6 @@ public class Login extends javax.swing.JFrame {
         performLogin();
     }//GEN-LAST:event_btnLoginActionPerformed
 
-    /**
-     * @param args the command line arguments
-     */
-    public static void main(String args[]) {
-        /* Set the Nimbus look and feel */
-        //<editor-fold defaultstate="collapsed" desc=" Look and feel setting code (optional) ">
-        /* If Nimbus (introduced in Java SE 6) is not available, stay with the default look and feel.
-         * For details see http://download.oracle.com/javase/tutorial/uiswing/lookandfeel/plaf.html 
-         */
-        try {
-            for (javax.swing.UIManager.LookAndFeelInfo info : javax.swing.UIManager.getInstalledLookAndFeels()) {
-                if ("Nimbus".equals(info.getName())) {
-                    javax.swing.UIManager.setLookAndFeel(info.getClassName());
-                    break;
-                }
-            }
-        } catch (ClassNotFoundException ex) {
-            java.util.logging.Logger.getLogger(Login.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        } catch (InstantiationException ex) {
-            java.util.logging.Logger.getLogger(Login.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        } catch (IllegalAccessException ex) {
-            java.util.logging.Logger.getLogger(Login.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        } catch (javax.swing.UnsupportedLookAndFeelException ex) {
-            java.util.logging.Logger.getLogger(Login.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        }
-        //</editor-fold>
-
-        /* Create and display the form */
-        java.awt.EventQueue.invokeLater(new Runnable() {
-            public void run() {
-                new Login().setVisible(true);
-            }
-        });
-    }
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JButton btnLogin;

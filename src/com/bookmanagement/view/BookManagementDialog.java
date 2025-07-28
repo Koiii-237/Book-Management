@@ -63,8 +63,8 @@ public class BookManagementDialog extends javax.swing.JDialog {
             txtBookID.setText(book.getBookID());
             txtBookName.setText(book.getBookName());
             txtAuthor.setText(book.getAuthor());
-            txtKind.setText(book.getCartegory());
-            txtDescribe.setText(book.getDescibe());
+            txtKind.setText(book.getGenre());
+            txtDescribe.setText(book.getDescription());
             txtPrice.setText(book.getPrice() != null ? book.getPrice().toPlainString() : ""); // Đã điều chỉnh: getDonGia()
         }
     }
@@ -115,8 +115,8 @@ public class BookManagementDialog extends javax.swing.JDialog {
             else {
                 currentBook.setBookName(name);
                 currentBook.setAuthor(author);
-                currentBook.setCartegory(kind);
-                currentBook.setDescibe(description);
+                currentBook.setGenre(kind);
+                currentBook.setDescription(description);
                 currentBook.setPrice(price);
                 result = bookDAO.updateBook(currentBook);
                 if(result){

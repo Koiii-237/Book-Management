@@ -32,7 +32,11 @@ public class UserDAO {
     // Create
     public User login(String username, String password) {
         User user = null;
-        String query = "SELECT * FROM NguoiDung WHERE TenDangNhap = ? AND MatKhau = ?";
+        String query = "SELECT nd.MaNguoiDung, nd.TenDangNhap, nd.MatKhau, nd.HoTen, nd.Email, qh.MaQuyenHan " +
+                       "FROM NguoiDung nd " +
+                       "LEFT JOIN NguoiDungQuyenHan ndqh ON nd.MaNguoiDung = ndqh.MaNguoiDung " +
+                       "LEFT JOIN QuyenHan qh ON ndqh.MaQuyenHan = qh.MaQuyenHan " +
+                       "WHERE nd.TenDangNhap = ? AND nd.MatKhau = ?";
 
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(query)) {
@@ -41,181 +45,197 @@ public class UserDAO {
             stmt.setString(2, password);
 
             try (ResultSet rs = stmt.executeQuery()) {
-                if (rs.next()) {
-                    user = mapUserFromResultSet(rs);
+                List<String> roles = new ArrayList<>();
+                boolean userFound = false;
 
-                    // Đảm bảo người dùng đã được kích hoạt
-                    if (!user.isActivated()) {
-                        return null;
+                while (rs.next()) {
+                    if (!userFound) { // Chỉ khởi tạo user một lần
+                        user = new User();
+                        user.setUserID(rs.getString("MaNguoiDung"));
+                        user.setUserName(rs.getString("TenDangNhap"));
+                        user.setPassword(rs.getString("MatKhau"));
+                        user.setFullName(rs.getString("HoTen"));
+                        user.setEmail(rs.getString("Email"));
+                        userFound = true;
                     }
+                    String role = rs.getString("MaQuyenHan");
+                    if (role != null && !roles.contains(role)) {
+                        roles.add(role);
+                    }
+                }
 
-                    // Gán danh sách quyền
-                    List<String> roles = getUserRoles(user.getUserID());
-                    user.setRoles(roles);
+                if (userFound) {
+                    user.setRoles(roles); // Thiết lập danh sách quyền hạn (roles) cho đối tượng User
                 }
             }
 
         } catch (SQLException e) {
-            e.printStackTrace();
+            LOGGER.log(Level.SEVERE, "Lỗi khi đăng nhập người dùng: " + username, e);
+            // Có thể hiển thị thông báo lỗi cho người dùng hoặc ghi log chi tiết hơn
         }
-
         return user;
     }
 
-    // Thêm người dùng mới
-    public boolean addUser(User user) {
-        String query = "INSERT INTO NguoiDung (TenDangNhap, MatKhau, HoTen, Email, IsActivated) VALUES (?, ?, ?, ?, ?)";
 
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(query, Statement.RETURN_GENERATED_KEYS)) {
 
-            stmt.setString(1, user.getUserName());
-            stmt.setString(2, user.getPassword());
-            stmt.setString(3, user.getFullName());
-            stmt.setString(4, user.getEmail());
-            stmt.setBoolean(6, user.isActivated());
-
-            int affectedRows = stmt.executeUpdate();
-
-            if (affectedRows > 0) {
-                try (ResultSet rs = stmt.getGeneratedKeys()) {
-                    if (rs.next()) {
-                        String userId = rs.getString(1);
-                        insertUserRoles(userId, user.getRoles());
-                        return true;
-                    }
-                }
-            }
-
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-
-        return false;
-    }
-
-    // Cập nhật người dùng
-    public boolean updateUser(User user) {
-        String query = "UPDATE NguoiDung SET TenDangNhap = ?, MatKhau = ?, HoTen = ?, Email = ?, IsActivated = ? WHERE MaNguoiDung = ?";
-
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(query)) {
-
-            stmt.setString(1, user.getUserName());
-            stmt.setString(2, user.getPassword());
-            stmt.setString(3, user.getFullName());
-            stmt.setString(4, user.getEmail());
-            stmt.setBoolean(6, user.isActivated());
-            stmt.setString(7, user.getUserID());
-
-            int rowsUpdated = stmt.executeUpdate();
-
-            if (rowsUpdated > 0) {
-                deleteUserRoles(user.getUserID());
-                insertUserRoles(user.getUserID(), user.getRoles());
-                return true;
-            }
-
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-
-        return false;
-    }
-
-    // Xóa người dùng
-    public boolean deleteUser(int userId) {
-        String deleteUserRoles = "DELETE FROM NguoiDungQuyenHan WHERE MaQuyenHan = ?";
-        String deleteUser = "DELETE FROM NguoiDung WHERE MaNguoiDung = ?";
-
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement stmt1 = conn.prepareStatement(deleteUserRoles);
-             PreparedStatement stmt2 = conn.prepareStatement(deleteUser)) {
-
-            stmt1.setInt(1, userId);
-            stmt1.executeUpdate();
-
-            stmt2.setInt(1, userId);
-            int affectedRows = stmt2.executeUpdate();
-
-            return affectedRows > 0;
-
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-
-        return false;
-    }
-
-    // Lấy toàn bộ người dùng
     public List<User> getAllUsers() {
         List<User> users = new ArrayList<>();
         String query = "SELECT * FROM NguoiDung";
 
         try (Connection conn = DBConnection.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(query);
-             ResultSet rs = stmt.executeQuery()) {
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(query)) {
 
             while (rs.next()) {
                 User user = mapUserFromResultSet(rs);
-                user.setRoles(getUserRoles(user.getUserID()));
+                user.setRoles(getRolesForUser(user.getUserID())); // Lấy quyền hạn cho từng người dùng
                 users.add(user);
             }
-
         } catch (SQLException e) {
-            e.printStackTrace();
+            LOGGER.log(Level.SEVERE, "Lỗi khi lấy tất cả người dùng", e);
         }
-
         return users;
     }
 
-    // Lấy người dùng theo ID
     public User getUserById(String userId) {
-        String query = "SELECT * FROM NguoiDung WHERE MaNguoiDung = ?";
         User user = null;
+        String query = "SELECT * FROM NguoiDung WHERE MaNguoiDung = ?";
 
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(query)) {
 
             stmt.setString(1, userId);
-
             try (ResultSet rs = stmt.executeQuery()) {
                 if (rs.next()) {
                     user = mapUserFromResultSet(rs);
-                    user.setRoles(getUserRoles(userId));
+                    user.setRoles(getRolesForUser(user.getUserID())); // Lấy quyền hạn
                 }
             }
-
         } catch (SQLException e) {
-            e.printStackTrace();
+            LOGGER.log(Level.SEVERE, "Lỗi khi lấy người dùng theo ID: " + userId, e);
         }
-
         return user;
     }
 
-    // -------------------------------------
-    // Các phương thức phụ trợ
-    // -------------------------------------
+    public boolean updateUser(User user) {
+        String query = "UPDATE NguoiDung SET TenDangNhap = ?, MatKhau = ?, HoTen = ?, Email = ?, Activated = ? WHERE MaNguoiDung = ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(query)) {
 
-    public List<String> getUserRoles(String userId) {
+            conn.setAutoCommit(false); // Bắt đầu giao dịch để đảm bảo tính toàn vẹn dữ liệu
+
+            stmt.setString(1, user.getUserName());
+            stmt.setString(2, user.getPassword());
+            stmt.setString(3, user.getFullName());
+            stmt.setString(4, user.getEmail());
+            stmt.setString(6, user.getUserID());
+
+            int rowsAffected = stmt.executeUpdate();
+
+            // Cập nhật quyền hạn: xóa tất cả quyền cũ và thêm lại quyền mới
+            deleteUserRoles(user.getUserID());
+            insertUserRoles(user.getUserID(), user.getRoles());
+
+            conn.commit(); // Hoàn tất giao dịch
+            return rowsAffected > 0;
+
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Lỗi khi cập nhật người dùng: " + user.getUserID(), e);
+            // Rollback nếu có lỗi
+            try (Connection conn = DBConnection.getConnection()) {
+                if (conn != null) conn.rollback();
+            } catch (SQLException ex) {
+                LOGGER.log(Level.SEVERE, "Lỗi khi rollback giao dịch", ex);
+            }
+            return false;
+        }
+    }
+
+ 
+    public boolean deleteUser(String userId) {
+        String query = "DELETE FROM NguoiDung WHERE MaNguoiDung = ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(query)) {
+
+            conn.setAutoCommit(false); // Bắt đầu giao dịch
+
+            deleteUserRoles(userId); // Xóa quyền hạn trước khi xóa người dùng
+            stmt.setString(1, userId);
+            int rowsAffected = stmt.executeUpdate();
+
+            conn.commit(); // Hoàn tất giao dịch
+            return rowsAffected > 0;
+
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Lỗi khi xóa người dùng: " + userId, e);
+            // Rollback nếu có lỗi
+            try (Connection conn = DBConnection.getConnection()) {
+                if (conn != null) conn.rollback();
+            } catch (SQLException ex) {
+                LOGGER.log(Level.SEVERE, "Lỗi khi rollback giao dịch", ex);
+            }
+            return false;
+        }
+    }
+
+    
+    public boolean addUser(User user) {
+        String query = "INSERT INTO NguoiDung (MaNguoiDung, TenDangNhap, MatKhau, HoTen, Email, Activated) VALUES (?, ?, ?, ?, ?, ?)";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(query)) {
+
+            conn.setAutoCommit(false); // Bắt đầu giao dịch
+
+            String newUserId = UUID.randomUUID().toString(); // Tạo ID mới duy nhất
+            user.setUserID(newUserId); // Gán ID mới cho đối tượng user
+
+            stmt.setString(1, user.getUserID());
+            stmt.setString(2, user.getUserName());
+            stmt.setString(3, user.getPassword());
+            stmt.setString(4, user.getFullName());
+            stmt.setString(5, user.getEmail());
+
+            int rowsAffected = stmt.executeUpdate();
+
+            // Thêm quyền hạn cho người dùng mới nếu có
+            if (user.getRoles() != null && !user.getRoles().isEmpty()) {
+                insertUserRoles(user.getUserID(), user.getRoles());
+            }
+
+            conn.commit(); // Hoàn tất giao dịch
+            return rowsAffected > 0;
+
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Lỗi khi thêm người dùng: " + user.getUserName(), e);
+            // Rollback nếu có lỗi
+            try (Connection conn = DBConnection.getConnection()) {
+                if (conn != null) conn.rollback();
+            } catch (SQLException ex) {
+                LOGGER.log(Level.SEVERE, "Lỗi khi rollback giao dịch", ex);
+            }
+            return false;
+        }
+    }
+
+
+    public List<String> getRolesForUser(String userId) {
         List<String> roles = new ArrayList<>();
-        String query = "SELECT MaQuyenHan FROM NguoiDungQuyenHan WHERE MaNguoiDung = ?";
+        String query = "SELECT QH.TenQuyenHan FROM QuyenHan QH " +
+                       "JOIN NguoiDungQuyenHan NDQH ON QH.MaQuyenHan = NDQH.MaQuyenHan " +
+                       "WHERE NDQH.MaNguoiDung = ?";
 
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(query)) {
 
             stmt.setString(1, userId);
-
             try (ResultSet rs = stmt.executeQuery()) {
                 while (rs.next()) {
-                    roles.add(rs.getString("MaQuyenHan"));
+                    roles.add(rs.getString("TenQuyenHan"));
                 }
             }
-
         } catch (SQLException e) {
-            e.printStackTrace();
+            LOGGER.log(Level.SEVERE, "Lỗi khi lấy quyền hạn cho người dùng: " + userId, e);
         }
-
         return roles;
     }
 
@@ -228,13 +248,13 @@ public class UserDAO {
             for (String role : roles) {
                 stmt.setString(1, userId);
                 stmt.setString(2, role);
-                stmt.addBatch();
+                stmt.addBatch(); // Thêm vào batch để thực hiện hiệu quả hơn
             }
 
-            stmt.executeBatch();
+            stmt.executeBatch(); // Thực thi tất cả các lệnh trong batch
 
         } catch (SQLException e) {
-            e.printStackTrace();
+            LOGGER.log(Level.SEVERE, "Lỗi khi thêm quyền hạn cho người dùng: " + userId, e);
         }
     }
 
@@ -248,18 +268,17 @@ public class UserDAO {
             stmt.executeUpdate();
 
         } catch (SQLException e) {
-            e.printStackTrace();
+            LOGGER.log(Level.SEVERE, "Lỗi khi xóa quyền hạn người dùng: " + userId, e);
         }
     }
 
-    private User mapUserFromResultSet(ResultSet rs) throws SQLException {
+    public User mapUserFromResultSet(ResultSet rs) throws SQLException {
         User user = new User();
         user.setUserID(rs.getString("MaNguoiDung"));
         user.setUserName(rs.getString("TenDangNhap"));
         user.setPassword(rs.getString("MatKhau"));
         user.setFullName(rs.getString("HoTen"));
         user.setEmail(rs.getString("Email"));
-        user.setActivated(rs.getBoolean("IsActivated"));
         return user;
     }
 }

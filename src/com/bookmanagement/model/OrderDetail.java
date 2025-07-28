@@ -1,41 +1,38 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package com.bookmanagement.model;
 
 import java.math.BigDecimal;
 
-/**
- *
- * @author ADMIN
- */
 public class OrderDetail {
-    private String id;
+
+    private String orderDetailID;
     private int quantity;
-    private BigDecimal coin;
-    private BigDecimal price;
-    private String orderId;
-    private String bookId;
+    private BigDecimal unitPrice; // Giá tại thời điểm đặt hàng
+    private BigDecimal subtotal;  // quantity * unitPrice
+    private String orderID;
+    private String bookID;
+    private String bookName; // Thêm để hiển thị trong bảng mà không cần truy vấn lại sách
 
-    public OrderDetail(String id, int quantity, BigDecimal coin, BigDecimal price, String orderId, String bookId) {
-        this.id = id;
-        this.quantity = quantity;
-        this.coin = coin;
-        this.price = price;
-        this.orderId = orderId;
-        this.bookId = bookId;
-    }
-
+    // Constructors
     public OrderDetail() {
     }
 
-    public String getId() {
-        return id;
+    public OrderDetail(String orderDetailID, int quantity, BigDecimal unitPrice, BigDecimal subtotal, String orderID, String bookID, String bookName) {
+        this.orderDetailID = orderDetailID;
+        this.quantity = quantity;
+        this.unitPrice = unitPrice;
+        this.subtotal = subtotal;
+        this.orderID = orderID;
+        this.bookID = bookID;
+        this.bookName = bookName;
     }
 
-    public void setId(String id) {
-        this.id = id;
+    // Getters and Setters
+    public String getOrderDetailID() {
+        return orderDetailID;
+    }
+
+    public void setOrderDetailID(String orderDetailID) {
+        this.orderDetailID = orderDetailID;
     }
 
     public int getQuantity() {
@@ -46,37 +43,43 @@ public class OrderDetail {
         this.quantity = quantity;
     }
 
-    public BigDecimal getCoin() {
-        return coin;
+    public BigDecimal getUnitPrice() {
+        return unitPrice;
     }
 
-    public void setCoin(BigDecimal coin) {
-        this.coin = coin;
+    public void setUnitPrice(BigDecimal unitPrice) {
+        this.unitPrice = unitPrice;
     }
 
-    public BigDecimal getPrice() {
-        return price;
+    public BigDecimal getSubtotal() {
+        return subtotal;
     }
 
-    public void setPrice(BigDecimal price) {
-        this.price = price;
+    public void setSubtotal(BigDecimal subtotal) {
+        this.subtotal = subtotal;
     }
 
-    public String getOrderId() {
-        return orderId;
+    public String getOrderID() {
+        return orderID;
     }
 
-    public void setOrderId(String orderId) {
-        this.orderId = orderId;
+    public void setOrderID(String orderID) {
+        this.orderID = orderID;
     }
 
-    public String getBookId() {
-        return bookId;
+    public String getBookID() {
+        return bookID;
     }
 
-    public void setBookId(String bookId) {
-        this.bookId = bookId;
+    public void setBookID(String bookID) {
+        this.bookID = bookID;
     }
-    
-    
+
+    public String getBookName() {
+        return bookName;
+    }
+
+    public void setBookName(String bookName) {
+        this.bookName = bookName;
+    }
 }

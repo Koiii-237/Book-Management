@@ -14,7 +14,10 @@ import com.bookmanagement.model.User;
 import javax.swing.JOptionPane;
 import javax.swing.table.DefaultTableModel;
 import java.awt.Frame;
+import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.swing.JButton;
 import javax.swing.SwingUtilities;
 
@@ -49,20 +52,24 @@ public class BookManagementPanel extends javax.swing.JPanel {
     }
     
     public void fillToTable(){
-        DefaultTableModel tableModel = (DefaultTableModel) tblBook.getModel();
-        tableModel.setRowCount(0);
-        for(Book book : bookDAO.readAllBook()){
-            tableModel.addRow(new Object[]{
+        try {
+            DefaultTableModel tableModel = (DefaultTableModel) tblBook.getModel();
+            tableModel.setRowCount(0);
+            for(Book book : bookDAO.getAllBooks()){
+                tableModel.addRow(new Object[]{
                     book.getBookID(),
                     book.getBookName(),
                     book.getAuthor(),
-                    book.getCartegory(),
-                    book.getDescibe(),
+                    book.getGenre(),
+                    book.getDescription(),
                     book.getPrice(),
-            });
+                });
+            }
+            btnUpdate.setEnabled(false);
+            btnDelete.setEnabled(false);
+        } catch (SQLException ex) {
+            Logger.getLogger(BookManagementPanel.class.getName()).log(Level.SEVERE, null, ex);
         }
-        btnUpdate.setEnabled(false);
-        btnDelete.setEnabled(false);
     }
     
     public void addBook(){
@@ -105,38 +112,42 @@ public class BookManagementPanel extends javax.swing.JPanel {
     }
     
     public void updateBook(){
-        int selectedRow = tblBook.getSelectedRow();
-        if (selectedRow == -1) {
-            JOptionPane.showMessageDialog(this, "Please choose book to delete", "NOTIFICATION!", JOptionPane.WARNING_MESSAGE);
-            return;
-        }
-
-        DefaultTableModel model = (DefaultTableModel) tblBook.getModel();
-        String maSachToEdit = model.getValueAt(selectedRow, 0).toString();
-
-        Book bookToEdit = bookDAO.readBookById(maSachToEdit);
-
-        if (bookToEdit != null) {
-            Frame parentFrame = (Frame) SwingUtilities.getWindowAncestor(this);
-            BookManagementDialog dialog = new BookManagementDialog(parentFrame, true, bookToEdit);
-            dialog.setVisible(true);
-
-            if (dialog.isDataSaved()) {
-                fillToTable();
+        try {
+            int selectedRow = tblBook.getSelectedRow();
+            if (selectedRow == -1) {
+                JOptionPane.showMessageDialog(this, "Please choose book to delete", "NOTIFICATION!", JOptionPane.WARNING_MESSAGE);
+                return;
             }
-        } else {
-            JOptionPane.showMessageDialog(this, "NO FOUND BOOK TO UPDATE.", "ERROR!", JOptionPane.ERROR_MESSAGE);
+            
+            DefaultTableModel model = (DefaultTableModel) tblBook.getModel();
+            String maSachToEdit = model.getValueAt(selectedRow, 0).toString();
+            
+            Book bookToEdit = bookDAO.getBookById(maSachToEdit);
+            
+            if (bookToEdit != null) {
+                Frame parentFrame = (Frame) SwingUtilities.getWindowAncestor(this);
+                BookManagementDialog dialog = new BookManagementDialog(parentFrame, true, bookToEdit);
+                dialog.setVisible(true);
+                
+                if (dialog.isDataSaved()) {
+                    fillToTable();
+                }
+            } else {
+                JOptionPane.showMessageDialog(this, "NO FOUND BOOK TO UPDATE.", "ERROR!", JOptionPane.ERROR_MESSAGE);
+            }
+        } catch (SQLException ex) {
+            Logger.getLogger(BookManagementPanel.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
     
-    public void search(){
+    public void search() throws SQLException{
        String searchTerm = txtSearch.getText().trim();
         ArrayList<Book> searchResults;
 
         if (searchTerm.isEmpty()) {
-            searchResults = bookDAO.readAllBook();
+            searchResults = (ArrayList<Book>) bookDAO.getAllBooks();
         } else {
-            searchResults = bookDAO.searchBook(searchTerm);
+            searchResults = (ArrayList<Book>) bookDAO.searchBooks(searchTerm);
         }
         
         DefaultTableModel model = (DefaultTableModel) tblBook.getModel();
@@ -151,8 +162,8 @@ public class BookManagementPanel extends javax.swing.JPanel {
                 book.getBookID(),
                 book.getAuthor(),
                 book.getBookName(),
-                book.getCartegory(),
-                book.getDescibe(),
+                book.getGenre(),
+                book.getDescription(),
                 book.getPrice()
             });
         }
@@ -312,8 +323,12 @@ public class BookManagementPanel extends javax.swing.JPanel {
     }//GEN-LAST:event_spBookTableMouseClicked
 
     private void btnSearchActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnSearchActionPerformed
-        // TODO add your handling code here:
-        search();
+        try {
+            // TODO add your handling code here:
+            search();
+        } catch (SQLException ex) {
+            Logger.getLogger(BookManagementPanel.class.getName()).log(Level.SEVERE, null, ex);
+        }
     }//GEN-LAST:event_btnSearchActionPerformed
 
 
