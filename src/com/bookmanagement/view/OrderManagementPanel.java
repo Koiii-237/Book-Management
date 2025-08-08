@@ -9,33 +9,54 @@ package com.bookmanagement.view;
  * @author ADMIN
  */
 import com.bookmanagement.Dao.OrderDAO;
+import com.bookmanagement.Dao.OrderDetailDAO;
 import com.bookmanagement.model.Order;
+import com.bookmanagement.model.OrderDetail;
 import javax.swing.JOptionPane;
 import javax.swing.table.DefaultTableModel;
 import java.awt.Frame;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.sql.SQLException;
 import java.text.NumberFormat;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.SwingUtilities;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
+import javax.swing.JPopupMenu;
+import javax.swing.JList;
+import javax.swing.DefaultListModel;
+import javax.swing.Timer;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.awt.event.KeyAdapter;
+import java.awt.event.KeyEvent;
+import javax.swing.JScrollPane;
 
 public class OrderManagementPanel extends javax.swing.JPanel {
 
-    /**
-     * Creates new form BookPanel
-     */
     private static final Logger LOGGER = Logger.getLogger(OrderManagementPanel.class.getName());
     private OrderDAO orderDAO;
+    private DefaultTableModel tableModel;
+
+    // Các thành phần cho tính năng gợi ý tìm kiếm
+    private JPopupMenu suggestionPopup;
+    private JList<String> suggestionList;
+    private DefaultListModel<String> suggestionListModel;
+    private Timer suggestionTimer; // Dùng để trì hoãn tìm kiếm gợi ý
 
     public OrderManagementPanel() {
         initComponents();
         setSize(800, 500); // Kích thước mặc định của panel
         this.orderDAO = new OrderDAO();
         initTable();
+        initSuggestionFeature(); // Khởi tạo tính năng gợi ý
         fillToTable();
         
         // Thêm ListSelectionListener cho bảng để kích hoạt/vô hiệu hóa các nút
@@ -51,38 +72,172 @@ public class OrderManagementPanel extends javax.swing.JPanel {
     }
 
     /**
-     * Initializes the table model for orders.
+     * Khởi tạo bảng hiển thị đơn hàng.
      */
     private void initTable() {
-        DefaultTableModel model = new DefaultTableModel(
-                new Object[]{"Mã đơn hàng", "Ngày đặt hàng", "Tổng tiền", "Mã khách hàng", "Trạng thái"}, 0
-        ) {
+        String[] columnNames = {"Mã đơn hàng", "Ngày đặt hàng", "Tổng tiền", "Mã khách hàng", "Trạng thái", "Phương thức TT"};
+        tableModel = new DefaultTableModel(columnNames, 0) {
             @Override
             public boolean isCellEditable(int row, int column) {
-                return false; // Cells are not editable directly
+                return false; // Các ô không thể chỉnh sửa trực tiếp
             }
         };
-        tblOrder.setModel(model);
+        tblOrder.setModel(tableModel);
     }
 
     /**
-     * Fills the order table with data from the database.
+     * Khởi tạo tính năng gợi ý tìm kiếm.
      */
-    private void fillToTable() {
-        DefaultTableModel tableModel = (DefaultTableModel) tblOrder.getModel();
-        tableModel.setRowCount(0); // Clear existing rows
+    private void initSuggestionFeature() {
+        suggestionListModel = new DefaultListModel<>();
+        suggestionList = new JList<>(suggestionListModel);
+        suggestionPopup = new JPopupMenu();
+        suggestionPopup.add(new JScrollPane(suggestionList));
+
+        // Listener cho JList khi người dùng chọn một gợi ý
+        suggestionList.addListSelectionListener(new ListSelectionListener() {
+            @Override
+            public void valueChanged(ListSelectionEvent e) {
+                if (!e.getValueIsAdjusting() && suggestionList.getSelectedIndex() != -1) {
+                    txtSearch.setText(suggestionList.getSelectedValue());
+                    suggestionPopup.setVisible(false);
+                    search(); // Thực hiện tìm kiếm ngay sau khi chọn gợi ý
+                }
+            }
+        });
+        
+        // Listener cho JList khi người dùng click chuột vào một gợi ý
+        suggestionList.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                if (e.getClickCount() == 1) {
+                    txtSearch.setText(suggestionList.getSelectedValue());
+                    suggestionPopup.setVisible(false);
+                    search();
+                }
+            }
+        });
+
+        // Listener cho JTextField để lấy gợi ý khi người dùng nhập
+        txtSearch.getDocument().addDocumentListener(new DocumentListener() {
+            @Override
+            public void insertUpdate(DocumentEvent e) {
+                startSuggestionTimer();
+            }
+
+            @Override
+            public void removeUpdate(DocumentEvent e) {
+                startSuggestionTimer();
+            }
+
+            @Override
+            public void changedUpdate(DocumentEvent e) {
+                startSuggestionTimer();
+            }
+        });
+
+        // Listener cho JTextField để xử lý phím mũi tên và Enter
+        txtSearch.addKeyListener(new KeyAdapter() {
+            @Override
+            public void keyPressed(KeyEvent e) {
+                if (suggestionPopup.isVisible()) {
+                    int selectedIndex = suggestionList.getSelectedIndex();
+                    if (e.getKeyCode() == KeyEvent.VK_DOWN) {
+                        if (selectedIndex < suggestionListModel.size() - 1) {
+                            suggestionList.setSelectedIndex(selectedIndex + 1);
+                            suggestionList.ensureIndexIsVisible(selectedIndex + 1);
+                        }
+                    } else if (e.getKeyCode() == KeyEvent.VK_UP) {
+                        if (selectedIndex > 0) {
+                            suggestionList.setSelectedIndex(selectedIndex - 1);
+                            suggestionList.ensureIndexIsVisible(selectedIndex - 1);
+                        }
+                    } else if (e.getKeyCode() == KeyEvent.VK_ENTER) {
+                        if (selectedIndex != -1) {
+                            txtSearch.setText(suggestionList.getSelectedValue());
+                            suggestionPopup.setVisible(false);
+                            search();
+                        } else {
+                            // Nếu không có gợi ý nào được chọn, thực hiện tìm kiếm bình thường
+                            search();
+                            suggestionPopup.setVisible(false);
+                        }
+                    } else if (e.getKeyCode() == KeyEvent.VK_ESCAPE) {
+                        suggestionPopup.setVisible(false);
+                    }
+                } else if (e.getKeyCode() == KeyEvent.VK_ENTER) {
+                    search(); // Nếu popup không hiển thị, Enter sẽ tìm kiếm
+                }
+            }
+        });
+
+        // Timer để trì hoãn việc lấy gợi ý, tránh gọi DB quá nhiều
+        suggestionTimer = new Timer(300, new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                updateSuggestions();
+            }
+        });
+        suggestionTimer.setRepeats(false); // Chỉ chạy một lần sau mỗi lần trì hoãn
+    }
+    
+    private void startSuggestionTimer() {
+        if (suggestionTimer.isRunning()) {
+            suggestionTimer.restart();
+        } else {
+            suggestionTimer.start();
+        }
+    }
+
+    /**
+     * Cập nhật danh sách gợi ý dựa trên nội dung của txtSearch.
+     */
+    private void updateSuggestions() {
+        String keyword = txtSearch.getText().trim();
+        suggestionListModel.clear();
+
+        if (keyword.isEmpty()) {
+            suggestionPopup.setVisible(false);
+            return;
+        }
+
+        List<String> suggestions = orderDAO.getSuggestions(keyword);
+        for (String s : suggestions) {
+            suggestionListModel.addElement(s);
+        }
+
+        if (!suggestionListModel.isEmpty()) {
+            // Đặt kích thước popup bằng kích thước của JList
+            suggestionList.setVisibleRowCount(Math.min(suggestionListModel.size(), 10)); // Giới hạn số lượng hiển thị
+            suggestionPopup.pack();
+            
+            // Hiển thị popup ngay dưới JTextField
+            suggestionPopup.show(txtSearch, 0, txtSearch.getHeight());
+        } else {
+            suggestionPopup.setVisible(false);
+        }
+    }
+
+    /**
+     * Điền dữ liệu đơn hàng vào bảng.
+     */
+    public void fillToTable() {
+        DefaultTableModel currentTableModel = (DefaultTableModel) tblOrder.getModel();
+        currentTableModel.setRowCount(0); // Xóa các hàng hiện có
 
         try {
-            ArrayList<Order> allOrders = (ArrayList<Order>) orderDAO.getAllOrders();
+            List<Order> allOrders = orderDAO.getAllOrders();
             for (Order order : allOrders) {
-                tableModel.addRow(new Object[]{
-                    order.getOrderID(), // Sử dụng getOrderID()
-                    order.getOrderDate(), // Sử dụng getOrderDate()
-                    formatCurrency(order.getTotalAmount()), // Sử dụng getTotalAmount() và định dạng tiền tệ
-                    order.getCustomerID(), // Sử dụng getCustomerID()
-                    order.getStatus() // Sử dụng getStatus()
+                currentTableModel.addRow(new Object[]{
+                    order.getOrderID(),
+                    order.getOrderDate(),
+                    formatCurrency(order.getTotalAmount()),
+                    order.getCustomerID(),
+                    order.getStatus(),
+                    order.getPaymentMethod() // Hiển thị phương thức thanh toán
                 });
             }
+            
         } catch (Exception e) {
             LOGGER.log(Level.SEVERE, "Lỗi khi tải dữ liệu đơn hàng: " + e.getMessage(), e);
             JOptionPane.showMessageDialog(this, "Lỗi khi tải dữ liệu đơn hàng: " + e.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
@@ -90,7 +245,7 @@ public class OrderManagementPanel extends javax.swing.JPanel {
     }
     
     /**
-     * Updates the enabled state of buttons based on table selection.
+     * Cập nhật trạng thái các nút dựa trên lựa chọn bảng.
      */
     private void updateButtonStates() {
         int selectedRow = tblOrder.getSelectedRow();
@@ -102,37 +257,38 @@ public class OrderManagementPanel extends javax.swing.JPanel {
     }
 
     /**
-     * Performs a search for orders based on the search term.
+     * Thực hiện tìm kiếm đơn hàng dựa trên từ khóa trong txtSearch.
      */
     public void search() {
         String searchTerm = txtSearch.getText().trim();
-        ArrayList<Order> searchResults;
+        List<Order> searchResults;
+        suggestionPopup.setVisible(false); // Ẩn popup khi thực hiện tìm kiếm chính
 
         try {
             if (searchTerm.isEmpty()) {
-                searchResults = (ArrayList<Order>) orderDAO.getAllOrders(); // If empty, display all
+                searchResults = orderDAO.getAllOrders(); // Nếu trống, hiển thị tất cả
             } else {
-                // Assuming searchOrder can search by Order ID or Customer ID
                 searchResults = orderDAO.searchOrder(searchTerm); 
             }
 
-            DefaultTableModel model = (DefaultTableModel) tblOrder.getModel();
-            model.setRowCount(0); // Clear old data
+            DefaultTableModel currentTableModel = (DefaultTableModel) tblOrder.getModel();
+            currentTableModel.setRowCount(0); // Xóa dữ liệu cũ
 
             if (searchResults.isEmpty() && !searchTerm.isEmpty()) {
                 JOptionPane.showMessageDialog(this, "Không tìm thấy đơn hàng với từ khóa: '" + searchTerm + "'.", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
             }
 
             for (Order order : searchResults) {
-                model.addRow(new Object[]{
-                    order.getOrderID(), // Sử dụng getOrderID()
-                    order.getOrderDate(), // Sử dụng getOrderDate()
-                    formatCurrency(order.getTotalAmount()), // Sử dụng getTotalAmount() và định dạng tiền tệ
-                    order.getCustomerID(), // Sử dụng getCustomerID()
-                    order.getStatus() // Sử dụng getStatus()
+                currentTableModel.addRow(new Object[]{
+                    order.getOrderID(),
+                    order.getOrderDate(),
+                    formatCurrency(order.getTotalAmount()),
+                    order.getCustomerID(),
+                    order.getStatus(),
+                    order.getPaymentMethod() // Hiển thị phương thức thanh toán
                 });
             }
-            updateButtonStates(); // Update button states after search
+            updateButtonStates(); // Cập nhật trạng thái nút sau khi tìm kiếm
         } catch (Exception e) {
             LOGGER.log(Level.SEVERE, "Lỗi khi tìm kiếm đơn hàng: " + e.getMessage(), e);
             JOptionPane.showMessageDialog(this, "Lỗi khi tìm kiếm đơn hàng: " + e.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
@@ -140,37 +296,42 @@ public class OrderManagementPanel extends javax.swing.JPanel {
     }
     
     /**
-     * Opens the OrderDialog to create a new order.
+     * Mở OrderDialog để tạo đơn hàng mới.
      */
     private void createNewOrder() {
         Frame parentFrame = (Frame) SwingUtilities.getWindowAncestor(this);
-        // Đảm bảo OrderDialog là modal và không truyền Order cũ (tạo mới)
-        OrderDialog dialog = new OrderDialog(parentFrame, true); 
+        OrderDialog dialog = new OrderDialog(parentFrame, true);
         dialog.setVisible(true);
         // Giả định OrderDialog có phương thức isSucceeded() để kiểm tra xem thao tác có thành công không
-        if (dialog.isSucceeded()) { 
-            fillToTable(); // Refresh table after successful creation
+        // Bạn cần thêm phương thức này vào OrderDialog nếu chưa có
+         if (dialog.isOrderCreatedSuccessfully()) {
+            fillToTable(); // Làm mới bảng sau khi tạo thành công
             JOptionPane.showMessageDialog(this, "Đơn hàng đã được tạo thành công!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
-        } else {
-             JOptionPane.showMessageDialog(this, "Tạo đơn hàng bị hủy hoặc thất bại.", "Thông báo", JOptionPane.WARNING_MESSAGE);
-        }
+         } else {
+              JOptionPane.showMessageDialog(this, "Tạo đơn hàng bị hủy hoặc thất bại.", "Thông báo", JOptionPane.WARNING_MESSAGE);
+         }
         updateButtonStates(); // Cập nhật trạng thái nút sau khi dialog đóng
     }
     
     /**
-     * Displays the invoice detail dialog for the selected order.
+     * Hiển thị dialog chi tiết hóa đơn cho đơn hàng đã chọn.
      */
     private void showInvoiceDetail() {
         int selectedRow = tblOrder.getSelectedRow();
         if (selectedRow != -1) {
-            String orderId = (String) tblOrder.getValueAt(selectedRow, 0); // Lấy ID đơn hàng từ cột đầu tiên
+            String orderId = (String) tableModel.getValueAt(selectedRow, 0); // Lấy ID đơn hàng từ cột đầu tiên
             try {
                 Order order = orderDAO.getOrderByOrderId(orderId); // Lấy đối tượng Order từ DAO
-                if (order != null) {
-                    // Tạo OrderDialog ở chế độ xem chi tiết
-                    OrderDialog orderDialog = new OrderDialog((Frame) SwingUtilities.getWindowAncestor(this), order, true); // Truyền đối tượng Order và đặt chế độ xem
-                    orderDialog.setVisible(true);
-                    // Không cần fillToTable() ở đây vì chế độ xem không thay đổi dữ liệu bảng chính
+                // Cần thêm OrderDetailDAO và phương thức getOrderDetailsByOrderId vào project của bạn
+                 List<OrderDetail> orderDetails = (List<OrderDetail>) new OrderDetailDAO().getOrderDetailByOrderId(orderId); 
+                
+                if (order != null  && orderDetails != null ) { // Bỏ kiểm tra orderDetails tạm thời nếu chưa có
+                    // Tạo OrderDetailDialog (cần tạo class này)
+                    OrderDialog detailDialog = new OrderDialog(
+                        (Frame) SwingUtilities.getWindowAncestor(this), true, order, orderDetails
+                     );
+                     detailDialog.setVisible(true);
+                    JOptionPane.showMessageDialog(this, "Chức năng xem chi tiết đơn hàng cho ID: " + orderId + " đang được phát triển.", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
                 } else {
                     JOptionPane.showMessageDialog(this, "Không tìm thấy đơn hàng với mã: " + orderId + ". Dữ liệu có thể đã bị xóa hoặc không đồng bộ.", "Lỗi", JOptionPane.ERROR_MESSAGE);
                 }
@@ -184,14 +345,13 @@ public class OrderManagementPanel extends javax.swing.JPanel {
     }
     
     /**
-     * Prints the invoice for the selected order.
+     * In hóa đơn cho đơn hàng đã chọn.
      */
-    private void printOrder() {
+    private void handlePrintOrder() {
         int selectedRow = tblOrder.getSelectedRow();
         if (selectedRow != -1) {
-            String orderId = (String) tblOrder.getValueAt(selectedRow, 0); // Lấy ID đơn hàng từ cột đầu tiên
+            String orderId = (String) tableModel.getValueAt(selectedRow, 0); // Lấy ID đơn hàng từ cột đầu tiên
             try {
-                // Kiểm tra xem đơn hàng có tồn tại và không phải là "Đã hủy" không
                 Order order = orderDAO.getOrderByOrderId(orderId);
                 if (order == null) {
                     JOptionPane.showMessageDialog(this, "Không tìm thấy đơn hàng để in.", "Lỗi", JOptionPane.ERROR_MESSAGE);
@@ -202,13 +362,13 @@ public class OrderManagementPanel extends javax.swing.JPanel {
                     return;
                 }
                 
-                // Gọi lớp InvoicePrinter để in hóa đơn
-                boolean printed = InvoicePrinter.printInvoice(orderId);
-                if (printed) {
+                // Giả định bạn có lớp InvoicePrinter với phương thức printInvoice
+                // boolean printed = InvoicePrinter.printInvoice(orderId);
+                // if (printed) {
                     JOptionPane.showMessageDialog(this, "Đã gửi lệnh in hóa đơn cho đơn hàng " + orderId, "Thông báo", JOptionPane.INFORMATION_MESSAGE);
-                } else {
-                    // Thông báo đã được xử lý trong InvoicePrinter.printInvoice
-                }
+                // } else {
+                //    JOptionPane.showMessageDialog(this, "Không thể in hóa đơn. Vui lòng kiểm tra lại.", "Lỗi", JOptionPane.ERROR_MESSAGE);
+                // }
             } catch (SQLException ex) {
                 LOGGER.log(Level.SEVERE, "Lỗi khi chuẩn bị in đơn hàng: " + orderId, ex);
                 JOptionPane.showMessageDialog(this, "Lỗi khi chuẩn bị in đơn hàng: " + ex.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
@@ -222,15 +382,15 @@ public class OrderManagementPanel extends javax.swing.JPanel {
      * Xử lý chức năng hủy đơn hàng được chọn.
      */
     private void cancelOrder() {
-        DefaultTableModel tableModel = (DefaultTableModel) tblOrder.getModel();
+        DefaultTableModel currentTableModel = (DefaultTableModel) tblOrder.getModel();
         int selectedRow = tblOrder.getSelectedRow();
         if (selectedRow == -1) {
             JOptionPane.showMessageDialog(this, "Vui lòng chọn một đơn hàng để hủy.", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
             return;
         }
         
-        String orderId = (String) tableModel.getValueAt(selectedRow, 0);
-        String currentStatus = (String) tableModel.getValueAt(selectedRow, 4); // Giả sử trạng thái ở cột thứ 4
+        String orderId = (String) currentTableModel.getValueAt(selectedRow, 0);
+        String currentStatus = (String) currentTableModel.getValueAt(selectedRow, 4); 
 
         if ("Đã hủy".equals(currentStatus) || "Đã hoàn thành".equals(currentStatus)) {
             JOptionPane.showMessageDialog(this, "Không thể hủy đơn hàng đã " + currentStatus + ".", "Cảnh báo", JOptionPane.WARNING_MESSAGE);
@@ -259,11 +419,6 @@ public class OrderManagementPanel extends javax.swing.JPanel {
         NumberFormat currencyFormatter = NumberFormat.getCurrencyInstance(new Locale("vi", "VN"));
         return currencyFormatter.format(amount);
     }
-    /**
-     * This method is called from within the constructor to initialize the form.
-     * WARNING: Do NOT modify this code. The content of this method is always
-     * regenerated by the Form Editor.
-     */
     @SuppressWarnings("unchecked")
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
@@ -401,7 +556,8 @@ public class OrderManagementPanel extends javax.swing.JPanel {
         // TODO add your handling code here:
         fillToTable();
         txtSearch.setText(""); // Xóa nội dung tìm kiếm
-        updateButtonStates(); 
+        updateButtonStates();
+        JOptionPane.showMessageDialog(this, "Dữ liệu đã được làm mới", "NOTIFICATION!", JOptionPane.INFORMATION_MESSAGE);
     }//GEN-LAST:event_btnRefreshActionPerformed
 
     private void spBookTableMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_spBookTableMouseClicked
@@ -413,7 +569,7 @@ public class OrderManagementPanel extends javax.swing.JPanel {
         } else {
             btnCancel.setEnabled(false);
             btnDetail.setEnabled(false);
-            btnPrint.setEnabled(false); // Vô hiệu hóa nút in khi không có hàng được chọn
+            btnPrint.setEnabled(false);
         }
     }//GEN-LAST:event_spBookTableMouseClicked
 
@@ -424,7 +580,7 @@ public class OrderManagementPanel extends javax.swing.JPanel {
 
     private void btnPrintActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnPrintActionPerformed
         // TODO add your handling code here:
-        printOrder();
+        handlePrintOrder();
     }//GEN-LAST:event_btnPrintActionPerformed
 
 

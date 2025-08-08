@@ -4,10 +4,22 @@
  */
 package com.bookmanagement.view;
 
+import com.bookmanagement.model.User;
 import com.bookmanagement.model.UserSession;
 import com.bookmanagement.service.AuthService;
+import java.awt.BorderLayout;
 import java.awt.CardLayout;
-import java.util.List;
+import java.awt.Color;
+import java.awt.Font;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.logging.Logger;
+import javax.swing.JButton;
+import javax.swing.JPanel;
+import javax.swing.UIManager;
+import javax.swing.BorderFactory;
 
 /**
  *
@@ -15,105 +27,179 @@ import java.util.List;
  */
 public class HomePanel extends javax.swing.JPanel {
 
-    /**
-     * Creates new form HomePanel
-     */
+    private static final Logger LOGGER = Logger.getLogger(HomePanel.class.getName());
+
+    private final MainFrame mainFrame;
+    private final SlidingPanel contentSlider;
+    private JButton activeButton = null;
     
-    CardLayout dataPannelLayout;
-    private UserSession currentSession;
-    private UserSession session;
-    private MainFrame mainFrame;
+    // Màu sắc cho hiệu ứng
+    private final Color defaultButtonColor = new Color(153, 204, 255); // Màu nền mặc định cũ
+    private final Color hoverColor = new Color(51, 65, 85); // Slate-700
+    private final Color selectedColor = new Color(79, 70, 229); // Màu khi nút được chọn (Indigo-600)
+    private final Color selectedFgColor = Color.WHITE;
+    private final Color sidebarDefaultFgColor = Color.WHITE; // Màu chữ mặc định cho sidebar
     
+    // Màu nền cho sidebar
+    private final Color sidebarBgColor = new Color(30, 41, 59); // Slate-800
+
+    // Lưu trữ các panel nội dung
+    private final Map<String, JPanel> contentPanels = new HashMap<>();
+
     public HomePanel(MainFrame mf) {
         this.mainFrame = mf;
-        setSize(1200, 700);
         initComponents();
+        applyCustomStyles();
         
-        dataPannelLayout = (CardLayout) dataPannel.getLayout();
-        dataPannel.add(new Home(), "Home");
-        dataPannel.add(new BookManagementPanel(), "BookManagement");
-        dataPannel.add(new InventoryManagementPanel(), "InventoryManagement");
-        dataPannel.add(new CustomerManagementPanel(), "CustomerManagement");
-        dataPannel.add(new OrderManagementPanel(), "OrderManagement");
-        dataPannel.add(new UserManagementPanel(), "UserManagement");
+        // Đây là code gốc của bạn, tôi giữ lại
+        contentSlider = new SlidingPanel();
+        pnData.add(contentSlider, BorderLayout.CENTER);
+        
+        // Khởi tạo và lưu trữ các panel nội dung
+        contentPanels.put("Home", new Home());
+        contentPanels.put("BookManagement", new BookManagementPanel());
+        contentPanels.put("InventoryManagement", new InventoryManagementPanel());
+        contentPanels.put("CustomerManagement", new CustomerManagementPanel());
+        contentPanels.put("OrderManagement", new OrderManagementPanel());
+        contentPanels.put("UserManagement", new UserManagementPanel());
+        contentPanels.put("RevenueStatistics", new RevenueStatisticsPanel()); // Thêm panel thống kê
 
-        // 3. Gắn ActionListener cho các nút Sidebar
-        btnHome.addActionListener(e -> dataPannelLayout.show(dataPannel, "Home"));
-        btnBook.addActionListener(e -> dataPannelLayout.show(dataPannel, "BookManagement"));
-        btnInventory.addActionListener(e -> dataPannelLayout.show(dataPannel, "InventoryManagement"));
-        btnCustomer.addActionListener(e -> dataPannelLayout.show(dataPannel, "CustomerManagement"));
-        btnOrder.addActionListener(e -> dataPannelLayout.show(dataPannel, "OrderManagement"));
-        btnUser.addActionListener(e -> dataPannelLayout.show(dataPannel, "UserManagement"));
+        // Gắn ActionListener cho các nút Sidebar
+        btnHome.addActionListener(e -> showPanel("Home", btnHome));
+        btnBook.addActionListener(e -> showPanel("BookManagement", btnBook));
+        btnInventory.addActionListener(e -> showPanel("InventoryManagement", btnInventory));
+        btnCustomer.addActionListener(e -> showPanel("CustomerManagement", btnCustomer));
+        btnOrder.addActionListener(e -> showPanel("OrderManagement", btnOrder));
+        btnUser.addActionListener(e -> showPanel("UserManagement", btnUser));
+        btnRevenue.addActionListener(e -> showPanel("RevenueStatistics", btnRevenue)); // Thêm ActionListener cho nút thống kê
+        btnLogout.addActionListener(e -> logout());
 
-        // 5. Hiển thị màn hình "Trang Chủ" mặc định khi khởi động
-        setAllManagementButtonsVisible(false);
-        btnHome.setVisible(true);
-        System.out.println("HomePanel constructor finished.");
+        // Áp dụng hiệu ứng di chuột cho tất cả các nút
+        addHoverEffect(btnHome);
+        addHoverEffect(btnBook);
+        addHoverEffect(btnInventory);
+        addHoverEffect(btnCustomer);
+        addHoverEffect(btnOrder);
+        addHoverEffect(btnUser);
+        addHoverEffect(btnRevenue); // Áp dụng hiệu ứng cho nút mới
+        addHoverEffect(btnLogout);
+
+        // Hiển thị panel Home và đánh dấu nút Home là nút mặc định được chọn
+        contentSlider.showPanel(contentPanels.get("Home"));
+        setActiveButton(btnHome);
+        
+        // Cập nhật các nút dựa trên quyền hạn của người dùng
+        updateSidebarVisibility();
     }
     
-    public void setSessionAndPermissions(UserSession session) {
-        System.out.println("HomePanel.setSessionAndPermissions called. Session hash: " + (session != null ? session.hashCode() : "null"));
-        this.currentSession = session;
-        if (session != null && session.getCurrentUser() != null) {
-            String userName = session.getCurrentUser().getFullName();
-            System.out.println("User is logged in. Full name: " + userName);
-            lblWelcomeUser.setText("Xin chào, " + userName + "!");
-            updateUIPermissions(); // Cập nhật trạng thái các nút
-        } else {
-            System.out.println("User session is null or current user is null. Resetting UI.");
-            lblWelcomeUser.setText("Xin chào!");
-            // Nếu không có session, ẩn tất cả các nút quản lý
-            setAllManagementButtonsVisible(false);
+    /**
+     * Phương thức này chứa toàn bộ code tùy chỉnh giao diện.
+     * Nó được gọi sau initComponents() để đảm bảo an toàn.
+     */
+    private void applyCustomStyles() {
+        // Cài đặt màu nền chung cho các panel
+        this.setBackground(new Color(241, 245, 249)); // Slate-100
+        pnData.setBackground(new Color(241, 245, 249));
+
+        // Header styling (tràn viền)
+        pnHeader.setBackground(new Color(0, 153, 204));
+        pnHeader.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 0)); // Loại bỏ viền
+        lblApplication.setFont(new Font("Arial", Font.BOLD, 24));
+        lblApplication.setForeground(Color.WHITE);
+        userInforPanel.setBackground(new Color(0, 153, 204));
+        lblWelcomeUser.setFont(new Font("Arial", Font.PLAIN, 16));
+        lblWelcomeUser.setForeground(Color.WHITE);
+
+        // Sidebar styling (tràn viền)
+        pnSideBar.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 0));
+        sidebarPanel.setBackground(sidebarBgColor);
+        sidebarPanel.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 0));
+        
+        JButton[] sidebarButtons = {btnHome, btnBook, btnInventory, btnCustomer, btnOrder, btnUser, btnRevenue};
+        for (JButton button : sidebarButtons) {
+            button.setFont(new Font("Arial", Font.BOLD, 16));
+            button.setBackground(sidebarBgColor);
+            button.setForeground(sidebarDefaultFgColor);
+            button.setBorder(BorderFactory.createEmptyBorder(15, 20, 15, 20)); // Vẫn giữ padding để tạo khoảng cách bên trong
+            button.setFocusPainted(false);
+            button.setOpaque(true);
+            button.setBorderPainted(false); // Loại bỏ viền nút
+            button.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
+            button.setPreferredSize(new java.awt.Dimension(250, 50)); // Đảm bảo nút có chiều cao hợp lý
         }
+        
+        // Tùy chỉnh màu cho nút Đăng xuất để nổi bật
+        btnLogout.setBackground(new Color(239, 68, 68)); // Red-500
+        btnLogout.setForeground(Color.WHITE);
+        btnLogout.setFont(new Font("Arial", Font.BOLD, 16));
+        btnLogout.setBorder(BorderFactory.createEmptyBorder(15, 20, 15, 20));
+        btnLogout.setFocusPainted(false);
+        btnLogout.setOpaque(true);
+        btnLogout.setBorderPainted(false);
+        btnLogout.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
+        btnLogout.setPreferredSize(new java.awt.Dimension(250, 50));
     }
     
-    private void updateUIPermissions() {
-        System.out.println("HomePanel.updateUIPermissions called.");
-        if (currentSession == null) {
-            System.out.println("currentSession is null in updateUIPermissions. Hiding all buttons.");
-            setAllManagementButtonsVisible(false);
-            return;
+    private void showPanel(String panelName, JButton clickedButton) {
+        setActiveButton(clickedButton);
+        contentSlider.showPanel(contentPanels.get(panelName));
+    }
+    
+    private void setActiveButton(JButton button) {
+        if (activeButton != null) {
+            activeButton.setBackground(sidebarBgColor);
+            activeButton.setForeground(sidebarDefaultFgColor);
         }
-
-        // Ẩn tất cả các nút trước khi kiểm tra quyền
-        setAllManagementButtonsVisible(false);
-        System.out.println("Permissions for current user:");
-        List<String> permissions = currentSession.getPermissions();
-        if (permissions != null) {
-            for (String perm : permissions) {
-                System.out.println("- " + perm);
+        activeButton = button;
+        activeButton.setBackground(selectedColor);
+        activeButton.setForeground(selectedFgColor);
+    }
+    
+    private void addHoverEffect(JButton button) {
+        button.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseEntered(MouseEvent e) {
+                if (button != activeButton) {
+                    button.setBackground(hoverColor);
+                }
             }
-        } else {
-            System.out.println("- No permissions found.");
-        }
 
+            @Override
+            public void mouseExited(MouseEvent e) {
+                if (button != activeButton) {
+                    button.setBackground(sidebarBgColor);
+                }
+            }
+        });
+    }
 
-        // Hiển thị các nút dựa trên quyền hạn của người dùng
-        // Sử dụng các tên quyền hạn đúng như trong DataBookManagement.sql
-        btnBook.setVisible(currentSession.hasPermission("QUANLY_SACH"));
-        btnInventory.setVisible(currentSession.hasPermission("QUANLY_KHO"));
-        btnCustomer.setVisible(currentSession.hasPermission("QUANLY_KHACHHANG"));
-        btnOrder.setVisible(currentSession.hasPermission("QUANLY_DONHANG") || currentSession.hasPermission("TAO_DONHANG"));
-        btnUser.setVisible(currentSession.hasPermission("QUANLY_NGUOIDUNG"));
-        // Nút Home luôn hiển thị
-        btnHome.setVisible(true);
-        System.out.println("UI permissions updated.");
+    public void setWelcomeMessage(String fullName) {
+        lblWelcomeUser.setText("Xin chào, " + fullName);
     }
     
-    // Phương thức trợ giúp để ẩn/hiện tất cả các nút quản lý
-    private void setAllManagementButtonsVisible(boolean visible) {
-        btnBook.setVisible(visible);
-        btnInventory.setVisible(visible);
-        btnCustomer.setVisible(visible);
-        btnOrder.setVisible(visible);
-        btnUser.setVisible(visible);
+    public void updateSidebarVisibility() {
+        User currentUser = UserSession.getCurrentUser();
+        if (currentUser != null) {
+            lblWelcomeUser.setText("Xin chào, " + currentUser.getFullName());
+
+            btnBook.setVisible(UserSession.hasPermission("QUANLY_SACH"));
+            btnInventory.setVisible(UserSession.hasPermission("QUANLY_KHO"));
+            btnCustomer.setVisible(UserSession.hasPermission("QUANLY_KHACHHANG"));
+            btnOrder.setVisible(UserSession.hasPermission("QUANLY_DONHANG"));
+            btnUser.setVisible(UserSession.hasPermission("QUANLY_NGUOIDUNG"));
+            btnRevenue.setVisible(UserSession.hasPermission("THONGKE_DOANHTHU")); // Thêm quyền cho nút thống kê
+            btnHome.setVisible(true);
+
+            LOGGER.info("Permissions for user " + currentUser.getUserName() + ": " + UserSession.getPermissions());
+        }
     }
 
     private void logout() {
-        AuthService.logout(); // Kết thúc session thông qua AuthService
-        mainFrame.showLogin(); // Chuyển về màn hình đăng nhập
+        AuthService authService = new AuthService();
+        authService.logout();
+        mainFrame.showPanel("Login");
+        mainFrame.getLoginPanel().clearFields();
     }
-    
     /**
      * This method is called from within the constructor to initialize the form.
      * WARNING: Do NOT modify this code. The content of this method is always
@@ -123,7 +209,7 @@ public class HomePanel extends javax.swing.JPanel {
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
 
-        pnMainScreen = new javax.swing.JPanel();
+        pnSideBar = new javax.swing.JPanel();
         sidebarPanel = new javax.swing.JPanel();
         btnHome = new javax.swing.JButton();
         btnBook = new javax.swing.JButton();
@@ -131,13 +217,13 @@ public class HomePanel extends javax.swing.JPanel {
         btnInventory = new javax.swing.JButton();
         btnOrder = new javax.swing.JButton();
         btnUser = new javax.swing.JButton();
-        dataPannel = new javax.swing.JPanel();
+        btnRevenue = new javax.swing.JButton();
         pnHeader = new javax.swing.JPanel();
-        jLabel1 = new javax.swing.JLabel();
+        lblApplication = new javax.swing.JLabel();
         userInforPanel = new javax.swing.JPanel();
         lblWelcomeUser = new javax.swing.JLabel();
-        btnLogout = new javax.swing.JToggleButton();
-        pnContent = new javax.swing.JPanel();
+        btnLogout = new javax.swing.JButton();
+        pnData = new javax.swing.JPanel();
 
         setLayout(new java.awt.BorderLayout());
 
@@ -224,20 +310,29 @@ public class HomePanel extends javax.swing.JPanel {
         });
         sidebarPanel.add(btnUser);
 
-        pnMainScreen.add(sidebarPanel);
+        btnRevenue.setBackground(new java.awt.Color(153, 204, 255));
+        btnRevenue.setFont(new java.awt.Font("Arial", 1, 16)); // NOI18N
+        btnRevenue.setForeground(new java.awt.Color(0, 0, 0));
+        btnRevenue.setText("REVENUE");
+        btnRevenue.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(102, 102, 102)));
+        btnRevenue.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
+        btnRevenue.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                btnRevenueActionPerformed(evt);
+            }
+        });
+        sidebarPanel.add(btnRevenue);
 
-        dataPannel.setBackground(new java.awt.Color(102, 102, 102));
-        dataPannel.setLayout(new java.awt.CardLayout());
-        pnMainScreen.add(dataPannel);
+        pnSideBar.add(sidebarPanel);
 
-        add(pnMainScreen, java.awt.BorderLayout.WEST);
+        add(pnSideBar, java.awt.BorderLayout.WEST);
 
         pnHeader.setBackground(new java.awt.Color(0, 153, 204));
         pnHeader.setLayout(new java.awt.BorderLayout());
 
-        jLabel1.setFont(new java.awt.Font("Arial", 1, 24)); // NOI18N
-        jLabel1.setText("BOOK MANAGEMENT");
-        pnHeader.add(jLabel1, java.awt.BorderLayout.CENTER);
+        lblApplication.setFont(new java.awt.Font("Arial", 1, 24)); // NOI18N
+        lblApplication.setText("BOOK MANAGEMENT");
+        pnHeader.add(lblApplication, java.awt.BorderLayout.CENTER);
 
         userInforPanel.setOpaque(false);
 
@@ -245,33 +340,17 @@ public class HomePanel extends javax.swing.JPanel {
         lblWelcomeUser.setText("Welcome: ");
         userInforPanel.add(lblWelcomeUser);
 
-        btnLogout.setFont(new java.awt.Font("Arial", 0, 14)); // NOI18N
+        btnLogout.setFont(new java.awt.Font("Arial", 1, 14)); // NOI18N
         btnLogout.setText("LOG OUT");
-        btnLogout.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                btnLogoutActionPerformed(evt);
-            }
-        });
         userInforPanel.add(btnLogout);
 
         pnHeader.add(userInforPanel, java.awt.BorderLayout.LINE_END);
 
         add(pnHeader, java.awt.BorderLayout.NORTH);
 
-        pnContent.setBackground(new java.awt.Color(102, 102, 102));
-
-        javax.swing.GroupLayout pnContentLayout = new javax.swing.GroupLayout(pnContent);
-        pnContent.setLayout(pnContentLayout);
-        pnContentLayout.setHorizontalGroup(
-            pnContentLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 579, Short.MAX_VALUE)
-        );
-        pnContentLayout.setVerticalGroup(
-            pnContentLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 620, Short.MAX_VALUE)
-        );
-
-        add(pnContent, java.awt.BorderLayout.CENTER);
+        pnData.setBackground(new java.awt.Color(102, 102, 102));
+        pnData.setLayout(new java.awt.CardLayout());
+        add(pnData, java.awt.BorderLayout.CENTER);
     }// </editor-fold>//GEN-END:initComponents
 
     private void btnHomeActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnHomeActionPerformed
@@ -298,10 +377,9 @@ public class HomePanel extends javax.swing.JPanel {
         // TODO add your handling code here:
     }//GEN-LAST:event_btnUserActionPerformed
 
-    private void btnLogoutActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnLogoutActionPerformed
+    private void btnRevenueActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnRevenueActionPerformed
         // TODO add your handling code here:
-        logout();
-    }//GEN-LAST:event_btnLogoutActionPerformed
+    }//GEN-LAST:event_btnRevenueActionPerformed
 
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
@@ -309,15 +387,15 @@ public class HomePanel extends javax.swing.JPanel {
     private javax.swing.JButton btnCustomer;
     private javax.swing.JButton btnHome;
     private javax.swing.JButton btnInventory;
-    private javax.swing.JToggleButton btnLogout;
+    private javax.swing.JButton btnLogout;
     private javax.swing.JButton btnOrder;
+    private javax.swing.JButton btnRevenue;
     private javax.swing.JButton btnUser;
-    private javax.swing.JPanel dataPannel;
-    private javax.swing.JLabel jLabel1;
+    private javax.swing.JLabel lblApplication;
     private javax.swing.JLabel lblWelcomeUser;
-    private javax.swing.JPanel pnContent;
+    private javax.swing.JPanel pnData;
     private javax.swing.JPanel pnHeader;
-    private javax.swing.JPanel pnMainScreen;
+    private javax.swing.JPanel pnSideBar;
     private javax.swing.JPanel sidebarPanel;
     private javax.swing.JPanel userInforPanel;
     // End of variables declaration//GEN-END:variables

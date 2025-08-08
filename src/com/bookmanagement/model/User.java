@@ -82,7 +82,9 @@ public class User {
         this.roles = roles;
     }
     
-    public boolean hasPermission(String per) {
-        return per != null && per.contains(per);
+    public boolean hasPermission(String permission) {
+        // Kiểm tra xem danh sách quyền hạn (roles) có null không
+        // và kiểm tra xem nó có chứa quyền hạn (permission) được yêu cầu không.
+        return this.roles != null && this.roles.contains(permission);
     }
 }

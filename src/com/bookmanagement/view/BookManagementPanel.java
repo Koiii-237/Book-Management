@@ -67,6 +67,8 @@ public class BookManagementPanel extends javax.swing.JPanel {
             }
             btnUpdate.setEnabled(false);
             btnDelete.setEnabled(false);
+            
+            
         } catch (SQLException ex) {
             Logger.getLogger(BookManagementPanel.class.getName()).log(Level.SEVERE, null, ex);
         }
@@ -309,6 +311,9 @@ public class BookManagementPanel extends javax.swing.JPanel {
     private void btnRefreshActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnRefreshActionPerformed
         // TODO add your handling code here:
         fillToTable();
+        txtSearch.setText("");
+        JOptionPane.showMessageDialog(this, "Dữ liệu đã được làm mới.", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
+        
     }//GEN-LAST:event_btnRefreshActionPerformed
 
     private void spBookTableMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_spBookTableMouseClicked

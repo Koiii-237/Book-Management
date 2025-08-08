@@ -8,11 +8,8 @@ package com.bookmanagement.view;
  *
  * @author ADMIN
  */
-import com.bookmanagement.Dao.BookManagementDAO;
 import com.bookmanagement.Dao.CustomerDAO;
-import com.bookmanagement.model.Book;
 import com.bookmanagement.model.Customer;
-import com.bookmanagement.model.User;
 import javax.swing.JOptionPane;
 import javax.swing.table.DefaultTableModel;
 import java.awt.Frame;
@@ -20,147 +17,217 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javax.swing.JButton;
 import javax.swing.SwingUtilities;
-
+import javax.swing.event.ListSelectionEvent;
+import javax.swing.event.ListSelectionListener;
 
 public class CustomerManagementPanel extends javax.swing.JPanel {
 
+    private static final Logger LOGGER = Logger.getLogger(CustomerManagementPanel.class.getName());
+    private CustomerDAO customerDAO;
+    private DefaultTableModel tableModel;
+
     /**
-     * Creates new form BookPanel
+     * Creates new form CustomerManagementPanel
      */
-    CustomerDAO csDAO;
-    
-    
     public CustomerManagementPanel() {
         initComponents();
-        csDAO = new CustomerDAO();
+        setSize(800, 500); // Default panel size
+        this.customerDAO = new CustomerDAO();
         initTable();
         fillToTable();
+
+        // Add ListSelectionListener to the table to enable/disable buttons
+        tblCustomer.getSelectionModel().addListSelectionListener(new ListSelectionListener() {
+            @Override
+            public void valueChanged(ListSelectionEvent e) {
+                if (!e.getValueIsAdjusting()) { // Ensure event fires only once when selection is final
+                    updateButtonStates();
+                }
+            }
+        });
+        updateButtonStates(); // Update button states initially
     }
-    
-    public void initTable(){
-        DefaultTableModel model = new DefaultTableModel(
-            new Object[]{"ID CUSTOMER", "NAME", "ADDRESS", "PHONE NUMBER"}, 0
+
+    /**
+     * Initializes the table structure for customers.
+     */
+    private void initTable() {
+        tableModel = new DefaultTableModel(
+                new Object[]{"Mã KH", "Tên Khách Hàng", "Địa Chỉ", "Số Điện Thoại"}, 0
         ) {
             @Override
             public boolean isCellEditable(int row, int column) {
-                return false;
+                return false; // Cells are not editable directly
             }
         };
-        tblCustomer.setModel(model);
-        
-        btnUpdate.setEnabled(false);
-        btnDelete.setEnabled(false);
+        tblCustomer.setModel(tableModel);
     }
-    
-    public void fillToTable(){
-        DefaultTableModel tableModel = (DefaultTableModel) tblCustomer.getModel();
-        tableModel.setRowCount(0);
-        for(Customer cs : csDAO.getAllCustomers()){
-            tableModel.addRow(new Object[]{
-                    cs.getId(),
-                    cs.getName(),
-                    cs.getAddress(),
-                    cs.getPhoneNumber()
-            });
-        }
-        btnUpdate.setEnabled(false);
-        btnDelete.setEnabled(false);
-    }
-    
-    public void addCustomer(){
-        Frame parent = (Frame) SwingUtilities.getWindowAncestor(this);
-        CustomerManagementDialog dialog = new CustomerManagementDialog(parent, true, null); 
-        dialog.setVisible(true); // Hiển thị dialog
 
-        // Kiểm tra kết quả sau khi dialog đóng
-        if (dialog.isDataSaved()) {
-            fillToTable();
-             // Tải lại dữ liệu vào bảng để hiển thị sách mới
+    /**
+     * Fills the customer table with data from the database.
+     */
+    private void fillToTable() {
+        tableModel.setRowCount(0); // Clear existing rows
+
+        try {
+            ArrayList<Customer> allCustomers = customerDAO.getAllCustomers();
+            for (Customer customer : allCustomers) {
+                tableModel.addRow(new Object[]{
+                    customer.getId(),
+                    customer.getName(),
+                    customer.getAddress(),
+                    customer.getPhoneNumber()
+                });
+            }
+        } catch (Exception e) { // Catch generic Exception to log all possible issues
+            LOGGER.log(Level.SEVERE, "Lỗi khi tải dữ liệu khách hàng: " + e.getMessage(), e);
+            JOptionPane.showMessageDialog(this, "Lỗi khi tải dữ liệu khách hàng: " + e.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
         }
     }
-    
-    public void deleteCustomer(){
+
+    /**
+     * Updates the enabled state of "SỬA" and "XÓA" buttons.
+     */
+    private void updateButtonStates() {
+        int selectedRow = tblCustomer.getSelectedRow();
+        boolean isRowSelected = selectedRow != -1;
+
+        btnUpdate.setEnabled(isRowSelected);
+        btnDelete.setEnabled(isRowSelected);
+    }
+
+    /**
+     * Performs a search for customers based on the search term.
+     */
+    private void performSearch() {
+        String searchTerm = txtSearch.getText().trim();
+        ArrayList<Customer> searchResults;
+
+        try {
+            if (searchTerm.isEmpty()) {
+                searchResults = customerDAO.getAllCustomers(); // If empty, display all
+            } else {
+                // Assuming searchCustomers can search by Name, Phone, or Address
+                searchResults = customerDAO.searchCustomers(searchTerm);
+            }
+
+            tableModel.setRowCount(0); // Clear old data
+
+            if (searchResults.isEmpty() && !searchTerm.isEmpty()) {
+                JOptionPane.showMessageDialog(this, "Không tìm thấy khách hàng với từ khóa: '" + searchTerm + "'.", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
+            }
+
+            for (Customer customer : searchResults) {
+                tableModel.addRow(new Object[]{
+                    customer.getId(),
+                    customer.getName(),
+                    customer.getAddress(),
+                    customer.getPhoneNumber()
+                });
+            }
+            updateButtonStates(); // Update button states after search
+        } catch (Exception e) {
+            LOGGER.log(Level.SEVERE, "Lỗi khi tìm kiếm khách hàng: " + e.getMessage(), e);
+            JOptionPane.showMessageDialog(this, "Lỗi khi tìm kiếm khách hàng: " + e.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    /**
+     * Opens CustomerDialog to add a new customer record.
+     */
+    private void handleAddNewCustomer() {
+        Frame parentFrame = (Frame) SwingUtilities.getWindowAncestor(this);
+        // Open dialog in add new mode (pass null for customer and false for isEditMode)
+        CustomerManagementDialog dialog = new CustomerManagementDialog(parentFrame, null, false);
+        dialog.setVisible(true);
+
+        if (dialog.isSucceeded()) { // Check if the operation was successful
+            fillToTable(); // Refresh table after successful addition
+            JOptionPane.showMessageDialog(this, "Thêm mới khách hàng thành công!", "Thành công", JOptionPane.INFORMATION_MESSAGE);
+        } else {
+            JOptionPane.showMessageDialog(this, "Thao tác thêm mới bị hủy hoặc thất bại.", "Thông báo", JOptionPane.WARNING_MESSAGE);
+        }
+        updateButtonStates(); // Update button states after dialog closes
+    }
+
+    /**
+     * Opens CustomerDialog to edit the selected customer record.
+     */
+    private void handleEditCustomer() {
         int selectedRow = tblCustomer.getSelectedRow();
         if (selectedRow == -1) {
-            JOptionPane.showMessageDialog(this, "Please choose book id to delete", "NOTIFICATION!", JOptionPane.WARNING_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Vui lòng chọn một khách hàng để sửa.", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
             return;
         }
 
-        int confirm = JOptionPane.showConfirmDialog(this, "Are you sure?", "NOTIFICATION!", JOptionPane.YES_NO_OPTION);
-        if (confirm == JOptionPane.YES_OPTION) {
-            DefaultTableModel model = (DefaultTableModel) tblCustomer.getModel();
-            String idToDelete = model.getValueAt(selectedRow, 0).toString();
-
-            try {
-                boolean success = csDAO.deleteCustomer(idToDelete);
-                if (success) {
-                    JOptionPane.showMessageDialog(this, "COMPLETE!", "NOTIFICATION!", JOptionPane.INFORMATION_MESSAGE);
-                    fillToTable();
-                } else {
-                    JOptionPane.showMessageDialog(this, "FAIL.", "ERROR!", JOptionPane.ERROR_MESSAGE);
-                }
-            } catch (Exception ex) {
-                JOptionPane.showMessageDialog(this, "ERROR WHEN DELETE BOOK: " + ex.getMessage(), "ERROR!", JOptionPane.ERROR_MESSAGE);
-            }
-        }
-    }
-    
-    public void updateCustomer(){
+        String customerId = (String) tableModel.getValueAt(selectedRow, 0);
         try {
-            int selectedRow = tblCustomer.getSelectedRow();
-            if (selectedRow == -1) {
-                JOptionPane.showMessageDialog(this, "Please choose book to delete", "NOTIFICATION!", JOptionPane.WARNING_MESSAGE);
-                return;
-            }
-            
-            DefaultTableModel model = (DefaultTableModel) tblCustomer.getModel();
-            String idToEdit = model.getValueAt(selectedRow, 0).toString();
-            
-            Customer csToEdit = csDAO.getCustomerById(idToEdit);
-            
-            if (csToEdit != null) {
+            Customer customer = customerDAO.getCustomerById(customerId);
+            if (customer != null) {
                 Frame parentFrame = (Frame) SwingUtilities.getWindowAncestor(this);
-                CustomerManagementDialog dialog = new CustomerManagementDialog(parentFrame, true, csToEdit);
+                // Open dialog in edit mode (pass the customer object and true for isEditMode)
+                CustomerManagementDialog dialog = new CustomerManagementDialog(parentFrame, customer, true);
                 dialog.setVisible(true);
-                
-                if (dialog.isDataSaved()) {
-                    fillToTable();
+
+                if (dialog.isSucceeded()) { // Check if the operation was successful
+                    fillToTable(); // Refresh table after successful update
+                    JOptionPane.showMessageDialog(this, "Cập nhật thông tin khách hàng thành công!", "Thành công", JOptionPane.INFORMATION_MESSAGE);
+                } else {
+                    JOptionPane.showMessageDialog(this, "Thao tác cập nhật bị hủy hoặc thất bại.", "Thông báo", JOptionPane.WARNING_MESSAGE);
                 }
             } else {
-                JOptionPane.showMessageDialog(this, "NO FOUND BOOK TO UPDATE.", "ERROR!", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(this, "Không tìm thấy khách hàng để sửa.", "Lỗi", JOptionPane.ERROR_MESSAGE);
             }
         } catch (SQLException ex) {
-            Logger.getLogger(CustomerManagementPanel.class.getName()).log(Level.SEVERE, null, ex);
+            LOGGER.log(Level.SEVERE, "Lỗi khi tải khách hàng để sửa: " + customerId, ex);
+            JOptionPane.showMessageDialog(this, "Lỗi khi tải khách hàng: " + ex.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
         }
+        updateButtonStates(); // Update button states after dialog closes
     }
-    
-    public void search(){
-       String searchTerm = txtSearch.getText().trim();
-        ArrayList<Customer> searchResults;
 
-        if (searchTerm.isEmpty()) {
-            searchResults = csDAO.getAllCustomers();
-        } else {
-            searchResults = csDAO.searchCustomers(searchTerm);
-        }
-        
-        DefaultTableModel model = (DefaultTableModel) tblCustomer.getModel();
-        model.setRowCount(0);
-        
-        if (searchResults.isEmpty() && !searchTerm.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "NO FOUND BOOK WITH: '" + searchTerm + "'.", "Kết quả tìm kiếm", JOptionPane.INFORMATION_MESSAGE);
+    /**
+     * Deletes the selected customer record.
+     */
+    private void handleDeleteCustomer() {
+        int selectedRow = tblCustomer.getSelectedRow();
+        if (selectedRow == -1) {
+            JOptionPane.showMessageDialog(this, "Vui lòng chọn một khách hàng để xóa.", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
+            return;
         }
 
-        for (Customer cs : searchResults) {
-            model.addRow(new Object[]{
-                cs.getId(), 
-                cs.getName(), 
-                cs.getAddress(),
-                cs.getPhoneNumber()
-            });
+        String customerId = (String) tableModel.getValueAt(selectedRow, 0);
+        String customerName = (String) tableModel.getValueAt(selectedRow, 1); // Customer name for confirmation message
+
+        int confirm = JOptionPane.showConfirmDialog(this,
+                "Bạn có chắc chắn muốn xóa khách hàng '" + customerName + "' (Mã KH: " + customerId + ") không?",
+                "Xác nhận xóa", JOptionPane.YES_NO_OPTION);
+
+        if (confirm == JOptionPane.YES_OPTION) {
+            try {
+                boolean success = customerDAO.deleteCustomer(customerId);
+                if (success) {
+                    JOptionPane.showMessageDialog(this, "Xóa khách hàng thành công!", "Thành công", JOptionPane.INFORMATION_MESSAGE);
+                    fillToTable(); // Refresh table
+                } else {
+                    JOptionPane.showMessageDialog(this, "Không thể xóa khách hàng.", "Lỗi", JOptionPane.ERROR_MESSAGE);
+                }
+            } catch (Exception ex) { // Catch generic Exception to log all possible issues
+                LOGGER.log(Level.SEVERE, "Lỗi khi xóa khách hàng: " + customerId, ex);
+                JOptionPane.showMessageDialog(this, "Lỗi khi xóa khách hàng: " + ex.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
+            }
         }
+        updateButtonStates(); // Update button states after deletion
+    }
+
+    /**
+     * Refreshes all data in the table.
+     */
+    private void handleRefreshTable() {
+        fillToTable();
+        txtSearch.setText(""); // Clear search field
+        updateButtonStates();
+        JOptionPane.showMessageDialog(this, "Dữ liệu đã được làm mới.", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
     }
     
 
@@ -287,31 +354,31 @@ public class CustomerManagementPanel extends javax.swing.JPanel {
 
     private void btnAddActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnAddActionPerformed
         // TODO add your handling code here:
-        addCustomer();
+        handleAddNewCustomer();
     }//GEN-LAST:event_btnAddActionPerformed
 
     private void btnDeleteActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnDeleteActionPerformed
         // TODO add your handling code here:
-        deleteCustomer();
+        handleDeleteCustomer();
     }//GEN-LAST:event_btnDeleteActionPerformed
 
     private void btnUpdateActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnUpdateActionPerformed
         // TODO add your handling code here:
-        updateCustomer();   
+        handleEditCustomer();   
     }//GEN-LAST:event_btnUpdateActionPerformed
 
     private void btnRefreshActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnRefreshActionPerformed
         // TODO add your handling code here:
-        fillToTable();
+        handleRefreshTable();
     }//GEN-LAST:event_btnRefreshActionPerformed
 
     private void spCustomerTableMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_spCustomerTableMouseClicked
-
+        
     }//GEN-LAST:event_spCustomerTableMouseClicked
 
     private void btnSearchActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnSearchActionPerformed
         // TODO add your handling code here:
-        search();
+        performSearch();
     }//GEN-LAST:event_btnSearchActionPerformed
 
 

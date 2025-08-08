@@ -25,7 +25,7 @@ public class CustomerDAO {
 
     private static final Logger LOGGER = Logger.getLogger(CustomerDAO.class.getName());
 
-    public String generateNextId() {
+    public synchronized String generateNextId() {
         
         String id = null;
         String sql = "SELECT MAX(MaKH) FROM KhachHang WHERE MaKH LIKE 'KH%'";
@@ -119,7 +119,7 @@ public class CustomerDAO {
     
     public Customer getCustomerById(String customerId) throws SQLException {
         Customer customer = null;
-        String sql = "SELECT MaKH, TenKH, DiaChi, SoDienThoai FROM KhachHang WHERE MaKH = ?";
+        String sql = "SELECT MaKH, TenKH, DiaChi, SDT FROM KhachHang WHERE MaKH = ?";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, customerId);
@@ -129,7 +129,7 @@ public class CustomerDAO {
                         rs.getString("MaKH"),
                         rs.getString("TenKH"),
                         rs.getString("DiaChi"),
-                        rs.getString("SoDienThoai")
+                        rs.getString("SDT")
                     );
                 }
             }

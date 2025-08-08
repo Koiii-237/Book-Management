@@ -13,14 +13,17 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Lớp OrderDetailDAO cung cấp các phương thức để tương tác với bảng ChiTietDonHang
- * (Order Detail) trong cơ sở dữ liệu.
+ * Lớp OrderDetailDAO cung cấp các phương thức để tương tác với bảng
+ * ChiTietDonHang (Order Detail) trong cơ sở dữ liệu.
  */
 public class OrderDetailDAO {
 
     private static final Logger LOGGER = Logger.getLogger(OrderDetailDAO.class.getName());
 
     public boolean insertOrderDetail(OrderDetail orderDetail) {
+        if (orderDetail == null || orderDetail.getOrderID() == null || orderDetail.getBookID() == null) {
+            throw new IllegalArgumentException("Thông tin chi tiết đơn hàng không hợp lệ");
+        }
         String sql = "INSERT INTO ChiTietDonHang (MaCTDH, MaDH, MaSach, SoLuong, DonGia, ThanhTien) VALUES (?, ?, ?, ?, ?, ?)";
         try (Connection con = DBConnection.getConnection(); PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setString(1, orderDetail.getOrderDetailID());
@@ -43,25 +46,26 @@ public class OrderDetailDAO {
      *
      * @param orderId ID của đơn hàng.
      * @return Danh sách các đối tượng OrderDetail.
-     * @throws SQLException Nếu có lỗi xảy ra trong quá trình truy vấn cơ sở dữ liệu.
+     * @throws SQLException Nếu có lỗi xảy ra trong quá trình truy vấn cơ sở dữ
+     * liệu.
      */
     public List<OrderDetail> getOrderDetailByOrderId(String orderId) throws SQLException {
         List<OrderDetail> details = new ArrayList<>();
         // SQL để lấy chi tiết đơn hàng, kết hợp với bảng Sach để lấy TenSach.
-        String sql = "SELECT od.MaCTDH, od.MaDH, od.MaSach, od.SoLuong, od.DonGia, od.ThanhTien, b.TenSach " +
-                     "FROM ChiTietDonHang od JOIN Sach b ON od.MaSach = b.MaSach WHERE od.MaDH = ?";
+        String sql = "SELECT od.MaCTDH, od.MaDH, od.MaSach, od.SoLuong, od.DonGia, od.ThanhTien, b.TenSach "
+                + "FROM ChiTietDonHang od JOIN Sach b ON od.MaSach = b.MaSach WHERE od.MaDH = ?";
         try (Connection conn = DBConnection.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, orderId);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     details.add(new OrderDetail(
-                        rs.getString("MaCTDH"),
-                        rs.getInt("SoLuong"),
-                        rs.getBigDecimal("DonGia"),
-                        rs.getBigDecimal("ThanhTien"),
-                        rs.getString("MaDH"),
-                        rs.getString("MaSach"),
-                        rs.getString("TenSach") // Lấy tên sách từ bảng Sach
+                            rs.getString("MaCTDH"),
+                            rs.getInt("SoLuong"),
+                            rs.getBigDecimal("DonGia"),
+                            rs.getBigDecimal("ThanhTien"),
+                            rs.getString("MaDH"),
+                            rs.getString("MaSach"),
+                            rs.getString("TenSach") // Lấy tên sách từ bảng Sach
                     ));
                 }
             }
@@ -73,16 +77,15 @@ public class OrderDetailDAO {
     }
 
     /**
-     * Xóa tất cả chi tiết đơn hàng cho một đơn hàng cụ thể.
-     * Thường được gọi trước khi thêm lại các chi tiết mới khi cập nhật đơn hàng.
+     * Xóa tất cả chi tiết đơn hàng cho một đơn hàng cụ thể. Thường được gọi
+     * trước khi thêm lại các chi tiết mới khi cập nhật đơn hàng.
      *
      * @param orderId Mã đơn hàng.
      * @return true nếu xóa thành công, false nếu có lỗi.
      */
     public boolean deleteOrderDetailsByOrderId(String orderId) {
         String query = "DELETE FROM ChiTietDonHang WHERE MaDH = ?";
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(query)) {
+        try (Connection conn = DBConnection.getConnection(); PreparedStatement stmt = conn.prepareStatement(query)) {
 
             stmt.setString(1, orderId);
             int rowsAffected = stmt.executeUpdate();

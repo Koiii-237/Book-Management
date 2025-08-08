@@ -20,9 +20,10 @@ import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.sql.Statement;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 public class InvoiceDAO {
     private static final Logger LOGGER = Logger.getLogger(InvoiceDAO.class.getName());
-
     // Create
     public boolean insertInvoice(Invoice invoice) throws SQLException {
         String sql = "INSERT INTO HoaDon (MaHD, NgayTao, TongTien, PhuongThucThanhToan, TienKhachTra, TienThua, MaDH) VALUES (?, ?, ?, ?, ?, ?, ?)";
@@ -120,17 +121,15 @@ public class InvoiceDAO {
             return false;
         }
     }
-
-    // Read by Order
-    public Invoice getInvoiceByOrderId(String orderId) throws SQLException {
-        Invoice invoice = null;
-        String sql = "SELECT MaHD, NgayTao, TongTien, PhuongThucThanhToan, TienKhachTra, TienThua, MaDH FROM HoaDon WHERE MaDH = ?";
+    
+    public static Invoice getInvoiceByOrderId(String orderId) throws SQLException {
+        String sql = "SELECT * FROM HoaDon WHERE MaDH = ?";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, orderId);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
-                    invoice = new Invoice(
+                    return new Invoice(
                         rs.getString("MaHD"),
                         rs.getDate("NgayTao").toLocalDate(),
                         rs.getBigDecimal("TongTien"),
@@ -145,6 +144,7 @@ public class InvoiceDAO {
             LOGGER.log(Level.SEVERE, "Lỗi khi lấy hóa đơn theo Order ID: " + orderId, ex);
             throw ex;
         }
-        return invoice;
+        return null;
     }
+    
 }

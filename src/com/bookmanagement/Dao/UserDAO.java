@@ -5,6 +5,7 @@
 package com.bookmanagement.Dao;
 
 import com.bookmanagement.DBPool.DBConnection;
+import com.bookmanagement.model.Book;
 import com.bookmanagement.model.User;
 import java.math.BigDecimal;
 import java.sql.Connection;
@@ -76,8 +77,47 @@ public class UserDAO {
         return user;
     }
 
+    public List<User> searchUser(String searchTerm) {
+        List<User> users = new ArrayList<>();
+        String query = "SELECT * FROM NguoiDung WHERE MaNguoiDung LIKE ? OR TenDangNhap LIKE ? OR MatKhau LIKE ? OR HoTen LIKE ? OR Email LIKE ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(query)) {
 
+            String searchPattern = "%" + searchTerm + "%";
+            stmt.setString(1, searchPattern);
+            stmt.setString(2, searchPattern);
+            stmt.setString(3, searchPattern);
+            stmt.setString(4, searchPattern);
+            stmt.setString(5, searchPattern);
 
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    users.add(mapUserFromResultSet(rs));
+                }
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Lỗi khi tìm kiếm sách với từ khóa: " + searchTerm, e);
+        }
+        return users;
+    }
+    
+    public boolean resetPassword(String userId, String newPassword) throws SQLException {
+        String query = "UPDATE NguoiDung SET MatKhau = ? WHERE MaNguoiDung = ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(query)) {
+
+            stmt.setString(1, newPassword); // Giả định newPassword đã được hash nếu cần
+            stmt.setString(2, userId);
+
+            int rowsAffected = stmt.executeUpdate();
+            return rowsAffected > 0;
+
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Lỗi khi đặt lại mật khẩu cho người dùng " + userId + ": " + e.getMessage(), e);
+            throw e; // Ném lại ngoại lệ để lớp gọi xử lý
+        }
+    }
+    
     public List<User> getAllUsers() {
         List<User> users = new ArrayList<>();
         String query = "SELECT * FROM NguoiDung";

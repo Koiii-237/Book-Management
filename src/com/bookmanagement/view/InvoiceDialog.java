@@ -9,18 +9,8 @@ package com.bookmanagement.view;
  * @author ADMIN
  */
 import com.bookmanagement.Dao.BookManagementDAO;
-import com.bookmanagement.Dao.InvoiceDAO;
-import com.bookmanagement.Dao.OrderDAO;
 import com.bookmanagement.Dao.OrderDetailDAO;
 import com.bookmanagement.model.Book;
-import com.bookmanagement.model.Order;
-
-import java.awt.event.ActionEvent;
-import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.util.ArrayList;
-import com.bookmanagement.model.Order;
-import com.bookmanagement.model.Customer;
 import com.bookmanagement.model.Invoice;
 import com.bookmanagement.model.OrderDetail;
 
@@ -57,6 +47,7 @@ public class InvoiceDialog extends javax.swing.JDialog {
      * @param invoice Đối tượng Invoice chứa dữ liệu hóa đơn cần hiển thị.
      */
     public InvoiceDialog(Window parent, Invoice invoice) {
+        
         super(parent, "Hóa Đơn", ModalityType.APPLICATION_MODAL);
         initComponents();
         this.currentInvoice = invoice; // Gán đối tượng Invoice được truyền vào
@@ -93,7 +84,7 @@ public class InvoiceDialog extends javax.swing.JDialog {
         btnPrint.addActionListener((ActionEvent e) -> {
             if (currentInvoice != null) {
                 System.out.println("InvoiceDialog: Nút Print được nhấn cho Invoice ID: " + currentInvoice.getInvoiceId());
-                boolean ok = InvoicePrinter.printInvoice(currentInvoice.getOrderId()); // Gọi phương thức in hóa đơn với orderId
+                boolean ok = InvoicePrinter.printInvoice( currentInvoice.getOrderId()); // Gọi phương thức in hóa đơn với orderId
                 if (!ok) {
                     JOptionPane.showMessageDialog(this,
                         "In hóa đơn thất bại hoặc bị hủy.",

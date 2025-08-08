@@ -8,11 +8,19 @@ package com.bookmanagement.view;
  *
  * @author ADMIN
  */
+import com.bookmanagement.Dao.BookManagementDAO;
 import com.bookmanagement.Dao.InventoryDAO;
+import com.bookmanagement.model.Book;
 import com.bookmanagement.model.Inventory;
 import java.awt.Frame;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
+import java.awt.Window;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import javax.swing.DefaultComboBoxModel;
 import javax.swing.JOptionPane;
 
 public class InventoryManagementDialog extends javax.swing.JDialog {
@@ -20,138 +28,157 @@ public class InventoryManagementDialog extends javax.swing.JDialog {
     /**
      * Creates new form BookManagementDialog
      */
-    private Inventory currentInventory; 
+    private static final Logger LOGGER = Logger.getLogger(InventoryManagementDialog.class.getName());
     private InventoryDAO inventoryDAO;
-    private boolean dataSaved = false;
+    private BookManagementDAO bookManagementDAO;
+    private Inventory currentInventory; // Đối tượng Inventory hiện tại (nếu đang sửa)
+    private boolean isEditMode; // true nếu đang ở chế độ sửa, false nếu thêm mới
+    private boolean isSucceeded = false; // Biến để kiểm tra thao tác có thành công không
 
     /**
-     * Constructor
+     * Creates new form InventoryDialog
      *
-     * @param parent
-     * @param modal
-     * @param bookId
+     * @param parent Frame cha của dialog.
+     * @param inventory Đối tượng Inventory để chỉnh sửa (null nếu thêm mới).
+     * @param isEditMode true nếu là chế độ chỉnh sửa, false nếu thêm mới.
      */
-    public InventoryManagementDialog(Frame owner) {
-        super(owner, "ADD NEW INVENTORY", true);
+    public InventoryManagementDialog(java.awt.Frame parent, Inventory inventory, boolean isEditMode) {
+        super(parent, true); // Luôn là modal
         initComponents();
-        setSize(500, 200);
-        setupListeners();
-        setLocationRelativeTo(owner);
-    }
-    
-    public InventoryManagementDialog(Frame owner, Inventory inventory) {
-        super(owner, "UPDATE INVENTORY", true);
+        this.inventoryDAO = new InventoryDAO();
+        this.bookManagementDAO = new BookManagementDAO();
         this.currentInventory = inventory;
-        setSize(500, 200);
-        setupListeners();
-        setLocationRelativeTo(owner);
-        populateFields(inventory); // Điền dữ liệu của item vào các trường
-        // Không cho phép chỉnh sửa MaKho khi sửa
-        txtBookID.setEditable(false);
+        this.isEditMode = isEditMode;
+        initComboBox(); // Khởi tạo ComboBox sách
+        initDialogState(); // Thiết lập trạng thái ban đầu của dialog
+
+        this.setLocationRelativeTo(parent); // Canh giữa dialog
     }
-    
-    private void populateFields(Inventory inventory) {
-        txtInventoryID.setText(inventory.getInventoryId());
-        txtBookID.setText(inventory.getBookId());
-        txtQuantityInventory.setText(String.valueOf(inventory.getQunatity()));
-        txtAddress.setText(inventory.getAddress());
-        txtBookID.setEnabled(false);
+
+    /**
+     * Trả về true nếu thao tác trong dialog (thêm/sửa) thành công.
+     * @return true nếu thành công, false nếu bị hủy hoặc thất bại.
+     */
+    public boolean isSucceeded() {
+        return isSucceeded;
     }
-    
-    private void setupListeners() {
-       btnSave.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                // Khi nút "Lưu" được nhấn
-                if (validateInput()) { // Kiểm tra tính hợp lệ của dữ liệu nhập vào
-                    saveStock(); // Lưu hoặc cập nhật đối tượng Stock
-                    dataSaved = true; // Đặt cờ saved thành true
-                    dispose(); // Đóng dialog (giải phóng tài nguyên)
+
+    /**
+     * Khởi tạo ComboBox chọn sách với dữ liệu từ cơ sở dữ liệu.
+     */
+    private void initComboBox() {
+        try {
+            List<Book> books = bookManagementDAO.getAllBooks();
+            DefaultComboBoxModel<String> model = new DefaultComboBoxModel<>();
+            for (Book book : books) {
+                model.addElement(book.getBookID() + " - " + book.getBookName());
+            }
+            cbBook.setModel(model);
+        } catch (SQLException ex) {
+            LOGGER.log(Level.SEVERE, "Lỗi khi tải danh sách sách vào ComboBox", ex);
+            JOptionPane.showMessageDialog(this, "Lỗi khi tải danh sách sách: " + ex.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    /**
+     * Thiết lập trạng thái ban đầu của dialog dựa trên chế độ (thêm mới/chỉnh sửa).
+     */
+    private void initDialogState() {
+        if (isEditMode && currentInventory != null) {
+            setTitle("SỬA THÔNG TIN TỒN KHO");
+            txtInventoryID.setText(currentInventory.getInventoryId());
+            txtInventoryID.setEditable(false); // Không cho phép sửa ID
+            txtQuantity.setText(String.valueOf(currentInventory.getQunatity()));
+            txtAddress.setText(currentInventory.getAddress());
+            // Chọn sách tương ứng trong ComboBox
+            for (int i = 0; i < cbBook.getItemCount(); i++) {
+                String item = cbBook.getItemAt(i);
+                if (item.startsWith(currentInventory.getBookId() + " -")) {
+                    cbBook.setSelectedIndex(i);
+                    break;
                 }
             }
-        });
-
-        btnCancel.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                // Khi nút "Hủy" được nhấn
-                dataSaved = false; // Đặt cờ saved thành false
-                dispose(); // Đóng dialog
-            }
-        });
+        } else {
+            setTitle("THÊM MỚI THÔNG TIN TỒN KHO");
+            txtInventoryID.setText("(AUTO GEN / Không sửa)");
+            txtInventoryID.setEditable(false); // Luôn không cho phép sửa ID
+            txtQuantity.setText("");
+            txtAddress.setText("");
+            cbBook.setSelectedIndex(-1); // Không chọn gì ban đầu
+        }
     }
-    
-    private void saveStock() {
+
+    /**
+     * Thu thập dữ liệu từ các trường UI để tạo hoặc cập nhật đối tượng Inventory.
+     * @return Đối tượng Inventory với dữ liệu từ UI, hoặc null nếu có lỗi.
+     */
+    private Inventory collectFormData() {
+        String inventoryId = isEditMode ? currentInventory.getInventoryId() : null; // ID sẽ được tạo tự động nếu thêm mới
+        String selectedBookString = (String) cbBook.getSelectedItem();
+        if (selectedBookString == null || selectedBookString.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Vui lòng chọn một cuốn sách.", "Lỗi", JOptionPane.ERROR_MESSAGE);
+            return null;
+        }
+        String bookId = selectedBookString.split(" - ")[0];
+
+        int quantity;
         try {
-            String stockId = txtInventoryID.getText().trim();
-            int quantity = Integer.parseInt(txtQuantityInventory.getText().trim());
-            String location = txtAddress.getText().trim();
-            String bookId = txtBookID.getText().trim();
-
-            if (stockId.isEmpty() || location.isEmpty() || bookId.isEmpty()) {
-                JOptionPane.showMessageDialog(this, "Vui lòng điền đầy đủ thông tin.", "Lỗi", JOptionPane.ERROR_MESSAGE);
-                return;
-            }
-
-            if (currentInventory == null) {
-                // Nếu currentStock là null, đây là trường hợp thêm mới
-                currentInventory = new Inventory(stockId, quantity, location, bookId);
-            } else {
-                // Nếu currentStock đã tồn tại, đây là trường hợp chỉnh sửa
-                currentInventory.setQunatity(quantity);
-                currentInventory.setAddress(location);
-                currentInventory.setBookId(bookId);
-                // Stock ID không thay đổi khi chỉnh sửa
-            }
-            dataSaved = true; // Đặt cờ là true nếu lưu thành công
-            dispose(); // Đóng dialog
-        } catch (NumberFormatException ex) {
-            JOptionPane.showMessageDialog(this, "Số lượng phải là một số nguyên hợp lệ.", "Lỗi Định Dạng", JOptionPane.ERROR_MESSAGE);
-        }
-    }
-    
-    public Inventory getStockItem() {
-        return currentInventory;
-    }
-    
-    public boolean isSaved() {
-        return dataSaved;
-    }
-    
-    private boolean validateInput() {
-        String maKho = txtInventoryID.getText().trim();
-        String maSach = txtBookID.getText().trim();
-        String soLuongStr = txtQuantityInventory.getText().trim();
-        String viTri = txtAddress.getText().trim();
-
-        if (maKho.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Mã Kho không được để trống.", "Lỗi Nhập Liệu", JOptionPane.ERROR_MESSAGE);
-            return false;
-        }
-        if (maSach.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Mã Sách không được để trống.", "Lỗi Nhập Liệu", JOptionPane.ERROR_MESSAGE);
-            return false;
-        }
-        if (viTri.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Vị Trí không được để trống.", "Lỗi Nhập Liệu", JOptionPane.ERROR_MESSAGE);
-            return false;
-        }
-
-        int soLuong;
-        try {
-            soLuong = Integer.parseInt(soLuongStr);
-            if (soLuong < 0) {
-                JOptionPane.showMessageDialog(this, "Số Lượng Tồn phải là số không âm.", "Lỗi Nhập Liệu", JOptionPane.ERROR_MESSAGE);
-                return false;
+            quantity = Integer.parseInt(txtQuantity.getText().trim());
+            if (quantity <= 0) {
+                JOptionPane.showMessageDialog(this, "Số lượng phải lớn hơn 0.", "Lỗi", JOptionPane.ERROR_MESSAGE);
+                return null;
             }
         } catch (NumberFormatException e) {
-            JOptionPane.showMessageDialog(this, "Số Lượng Tồn phải là một số nguyên hợp lệ.", "Lỗi Nhập Liệu", JOptionPane.ERROR_MESSAGE);
-            return false;
+            JOptionPane.showMessageDialog(this, "Số lượng không hợp lệ.", "Lỗi", JOptionPane.ERROR_MESSAGE);
+            return null;
         }
 
-        return true; // Tất cả dữ liệu hợp lệ
+        String address = txtAddress.getText().trim();
+        if (address.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Vui lòng nhập vị trí kho.", "Lỗi", JOptionPane.ERROR_MESSAGE);
+            return null;
+        }
+
+        return new Inventory(inventoryId, quantity, address, bookId);
     }
 
+    /**
+     * Xử lý logic lưu (thêm mới hoặc cập nhật) bản ghi tồn kho.
+     */
+    private void handleSaveLogic() {
+        Inventory inv = collectFormData();
+        if (inv == null) {
+            return; // Dữ liệu không hợp lệ
+        }
+
+        try {
+            boolean success;
+            if (isEditMode) {
+                success = inventoryDAO.update(inv);
+            } else {
+                success = inventoryDAO.insert(inv);
+            }
+
+            if (success) {
+                isSucceeded = true; // Đặt trạng thái thành công
+                JOptionPane.showMessageDialog(this, "Lưu thông tin tồn kho thành công!", "Thành công", JOptionPane.INFORMATION_MESSAGE);
+                dispose(); // Đóng dialog
+            } else {
+                JOptionPane.showMessageDialog(this, "Không thể lưu thông tin tồn kho.", "Lỗi", JOptionPane.ERROR_MESSAGE);
+            }
+        } catch (SQLException ex) {
+            LOGGER.log(Level.SEVERE, "Lỗi khi lưu tồn kho: ", ex);
+            JOptionPane.showMessageDialog(this, "Lỗi khi lưu tồn kho: " + ex.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    /**
+     * Xử lý logic hủy bỏ thao tác và đóng dialog.
+     */
+    private void handleCancelLogic() {
+        isSucceeded = false; // Đặt trạng thái không thành công
+        dispose(); // Đóng dialog
+    }
 
     /**
      * This method is called from within the constructor to initialize the form.
@@ -169,9 +196,9 @@ public class InventoryManagementDialog extends javax.swing.JDialog {
         lblAuthor = new javax.swing.JLabel();
         lblKind = new javax.swing.JLabel();
         txtInventoryID = new javax.swing.JTextField();
-        txtQuantityInventory = new javax.swing.JTextField();
         txtAddress = new javax.swing.JTextField();
-        txtBookID = new javax.swing.JTextField();
+        cbBook = new javax.swing.JComboBox<>();
+        txtQuantity = new javax.swing.JTextField();
         pnButton = new javax.swing.JPanel();
         btnSave = new javax.swing.JButton();
         btnCancel = new javax.swing.JButton();
@@ -179,6 +206,7 @@ public class InventoryManagementDialog extends javax.swing.JDialog {
         setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
         setTitle("Add and delete book");
         setModal(true);
+        setResizable(false);
 
         formPanel.setBorder(javax.swing.BorderFactory.createEmptyBorder(1, 1, 1, 1));
         formPanel.setLayout(new java.awt.GridBagLayout());
@@ -216,6 +244,7 @@ public class InventoryManagementDialog extends javax.swing.JDialog {
         formPanel.add(lblKind, gridBagConstraints);
 
         txtInventoryID.setEditable(false);
+        txtInventoryID.setText("AUTO GENERATE");
         gridBagConstraints = new java.awt.GridBagConstraints();
         gridBagConstraints.gridx = 1;
         gridBagConstraints.gridy = 0;
@@ -224,20 +253,6 @@ public class InventoryManagementDialog extends javax.swing.JDialog {
         gridBagConstraints.weightx = 1.0;
         gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
         formPanel.add(txtInventoryID, gridBagConstraints);
-
-        txtQuantityInventory.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                txtQuantityInventoryActionPerformed(evt);
-            }
-        });
-        gridBagConstraints = new java.awt.GridBagConstraints();
-        gridBagConstraints.gridx = 1;
-        gridBagConstraints.gridy = 1;
-        gridBagConstraints.fill = java.awt.GridBagConstraints.HORIZONTAL;
-        gridBagConstraints.anchor = java.awt.GridBagConstraints.WEST;
-        gridBagConstraints.weightx = 1.0;
-        gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
-        formPanel.add(txtQuantityInventory, gridBagConstraints);
         gridBagConstraints = new java.awt.GridBagConstraints();
         gridBagConstraints.gridx = 1;
         gridBagConstraints.gridy = 2;
@@ -246,15 +261,24 @@ public class InventoryManagementDialog extends javax.swing.JDialog {
         gridBagConstraints.weightx = 1.0;
         gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
         formPanel.add(txtAddress, gridBagConstraints);
+
+        cbBook.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "Item 1", "Item 2", "Item 3", "Item 4" }));
         gridBagConstraints = new java.awt.GridBagConstraints();
         gridBagConstraints.gridx = 1;
         gridBagConstraints.gridy = 3;
         gridBagConstraints.fill = java.awt.GridBagConstraints.HORIZONTAL;
         gridBagConstraints.anchor = java.awt.GridBagConstraints.WEST;
-        gridBagConstraints.weightx = 1.0;
-        gridBagConstraints.weighty = 1.0;
         gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
-        formPanel.add(txtBookID, gridBagConstraints);
+        formPanel.add(cbBook, gridBagConstraints);
+        gridBagConstraints = new java.awt.GridBagConstraints();
+        gridBagConstraints.gridx = 1;
+        gridBagConstraints.gridy = 1;
+        gridBagConstraints.fill = java.awt.GridBagConstraints.HORIZONTAL;
+        gridBagConstraints.anchor = java.awt.GridBagConstraints.WEST;
+        gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
+        formPanel.add(txtQuantity, gridBagConstraints);
+
+        getContentPane().add(formPanel, java.awt.BorderLayout.CENTER);
 
         pnButton.setCursor(new java.awt.Cursor(java.awt.Cursor.DEFAULT_CURSOR));
         pnButton.setMinimumSize(new java.awt.Dimension(500, 300));
@@ -276,16 +300,10 @@ public class InventoryManagementDialog extends javax.swing.JDialog {
         });
         pnButton.add(btnCancel);
 
-        formPanel.add(pnButton, new java.awt.GridBagConstraints());
-
-        getContentPane().add(formPanel, java.awt.BorderLayout.CENTER);
+        getContentPane().add(pnButton, java.awt.BorderLayout.SOUTH);
 
         pack();
     }// </editor-fold>//GEN-END:initComponents
-
-    private void txtQuantityInventoryActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_txtQuantityInventoryActionPerformed
-        // TODO add your handling code here:
-    }//GEN-LAST:event_txtQuantityInventoryActionPerformed
 
     private void txtSearchActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_txtSearchActionPerformed
         // TODO add your handling code here:
@@ -301,10 +319,12 @@ public class InventoryManagementDialog extends javax.swing.JDialog {
 
     private void btnSaveActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnSaveActionPerformed
         // TODO add your handling code here:
+        
     }//GEN-LAST:event_btnSaveActionPerformed
 
     private void btnCancelActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnCancelActionPerformed
         // TODO add your handling code here:
+        
     }//GEN-LAST:event_btnCancelActionPerformed
 
     /**
@@ -338,7 +358,7 @@ public class InventoryManagementDialog extends javax.swing.JDialog {
         /* Create and display the dialog */
         java.awt.EventQueue.invokeLater(new Runnable() {
             public void run() {
-                InventoryManagementDialog dialog = new InventoryManagementDialog(new javax.swing.JFrame());
+                InventoryManagementDialog dialog = new InventoryManagementDialog(new javax.swing.JFrame(), null, false);
                 dialog.addWindowListener(new java.awt.event.WindowAdapter() {
                     @Override
                     public void windowClosing(java.awt.event.WindowEvent e) {
@@ -353,6 +373,7 @@ public class InventoryManagementDialog extends javax.swing.JDialog {
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JButton btnCancel;
     private javax.swing.JButton btnSave;
+    private javax.swing.JComboBox<String> cbBook;
     private javax.swing.JPanel formPanel;
     private javax.swing.JLabel lblAuthor;
     private javax.swing.JLabel lblBookID;
@@ -360,8 +381,7 @@ public class InventoryManagementDialog extends javax.swing.JDialog {
     private javax.swing.JLabel lblKind;
     private javax.swing.JPanel pnButton;
     private javax.swing.JTextField txtAddress;
-    private javax.swing.JTextField txtBookID;
     private javax.swing.JTextField txtInventoryID;
-    private javax.swing.JTextField txtQuantityInventory;
+    private javax.swing.JTextField txtQuantity;
     // End of variables declaration//GEN-END:variables
 }

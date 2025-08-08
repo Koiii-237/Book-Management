@@ -4,10 +4,16 @@
  */
 package com.bookmanagement.view;
 
+import com.bookmanagement.model.User;
 import com.bookmanagement.model.UserSession;
 import com.bookmanagement.service.AuthService;
-import javax.swing.JOptionPane;
-
+import java.awt.Color;
+import java.awt.Dimension;
+import java.awt.Font;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.util.logging.Logger;
+import javax.swing.BorderFactory;
 /**
  *
  * @author ADMIN
@@ -17,45 +23,118 @@ public class LoginPanel extends javax.swing.JPanel {
     /**
      * Creates new form LoginPanel
      */
+    private static final Logger LOGGER = Logger.getLogger(LoginPanel.class.getName());
+
     private MainFrame mainFrame;
+    private final Color primaryColor = new Color(79, 70, 229);  // Indigo-600
+    private final Color primaryHoverColor = new Color(67, 56, 202); // Indigo-700
+    private final Color secondaryColor = new Color(243, 244, 246); // Gray-100
+    private final Color textColor = new Color(55, 65, 81); // Gray-700
+    private final Color borderColor = new Color(209, 213, 219); // Gray-300
+    private final Color errorColor = new Color(239, 68, 68); // Red-500
+    private final Color successColor = new Color(34, 197, 94);
 
     public LoginPanel(MainFrame mf) {
         this.mainFrame = mf;
         initComponents();
+        applyCustomStyles();
     }
-
+    
+    public void clearFields() {
+        txtUserName.setText("");
+        txtPassword.setText("");
+        lblDisplayResult.setText(""); // Xóa cả thông báo lỗi nếu có
+    }
+    
     private void performLogin() {
         String username = txtUserName.getText().trim();
         String password = new String(txtPassword.getPassword());
-        
+
         if (username.isEmpty() || password.isEmpty()) {
             lblDisplayResult.setText("Vui lòng nhập đủ tên đăng nhập và mật khẩu.");
             return;
         }
-        
+
         System.out.println("Attempting login for user: " + username);
-        // Gọi AuthService để đăng nhập và lấy UserSession
-        UserSession session = AuthService.login(username, password);
 
-        if (session != null) {
-            System.out.println("Login successful. Session is not null. Session hash: " + session.hashCode());
-            
-            // Lấy thể hiện HomePanel đã tồn tại từ MainFrame
-            HomePanel home = mainFrame.getHomePanel(); 
-            System.out.println("Retrieved HomePanel. HomePanel hash: " + (home != null ? home.hashCode() : "null"));
+        // Gọi AuthService để đăng nhập. Phương thức login giờ trả về boolean.
+        AuthService authService = new AuthService();
+        boolean loginSuccess = authService.login(username, password);
 
-            if (home != null) { // Thêm kiểm tra null cho 'home' để tránh NullPointerException
-                home.setSessionAndPermissions(session);
-                System.out.println("Calling showHome on MainFrame.");
-                mainFrame.showHome();
+        if (loginSuccess) {
+            System.out.println("Login successful.");
+
+            // Lấy User từ UserSession tĩnh sau khi đăng nhập thành công
+            User currentUser = UserSession.getCurrentUser();
+
+            if (currentUser != null) {
+                // Cập nhật thông tin người dùng trong HomePanel
+                HomePanel home = mainFrame.getHomePanel();
+                if (home != null) {
+                    home.setWelcomeMessage(currentUser.getFullName());
+                    // GỌI PHƯƠNG THỨC NÀY để chuyển đổi màn hình
+                    mainFrame.showPanel("Home");
+                }
             } else {
-                System.err.println("Error: HomePanel is null after mainFrame.getHomePanel(). This indicates a serious initialization issue.");
-                JOptionPane.showMessageDialog(this, "Lỗi hệ thống: Không thể tải giao diện chính. Vui lòng khởi động lại ứng dụng.");
+                lblDisplayResult.setText("Lỗi hệ thống: Không thể lấy thông tin người dùng.");
             }
         } else {
-            System.out.println("Login failed: Invalid username or password.");
-            JOptionPane.showMessageDialog(this, "Sai tên đăng nhập hoặc mật khẩu");
+            lblDisplayResult.setText("Tên đăng nhập hoặc mật khẩu không đúng.");
+            LOGGER.warning("Login failed for user: " + username);
         }
+    }
+    
+    private void applyCustomStyles() {
+        // Cài đặt màu nền cho panel chính
+        this.setBackground(secondaryColor);
+        
+        // Cài đặt font và màu cho tiêu đề
+        lblTitle.setFont(new Font("Arial", Font.BOLD, 28));
+        lblTitle.setForeground(primaryColor);
+        
+        // Cài đặt font và màu cho các nhãn
+        lblUserName.setFont(new Font("Arial", Font.PLAIN, 16));
+        lblUserName.setForeground(textColor);
+        lblPassword.setFont(new Font("Arial", Font.PLAIN, 16));
+        lblPassword.setForeground(textColor);
+        
+        // Tùy chỉnh ô nhập liệu
+        txtUserName.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(borderColor, 1, true),
+            BorderFactory.createEmptyBorder(8, 10, 8, 10)));
+        txtPassword.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(borderColor, 1, true),
+            BorderFactory.createEmptyBorder(8, 10, 8, 10)));
+        txtUserName.setPreferredSize(new Dimension(250, 35));
+        txtPassword.setPreferredSize(new Dimension(250, 35));
+        txtUserName.setFont(new Font("Arial", Font.PLAIN, 16));
+        txtPassword.setFont(new Font("Arial", Font.PLAIN, 16));
+
+        // Tùy chỉnh nút Đăng nhập
+        btnLogin.setFont(new Font("Arial", Font.BOLD, 16));
+        btnLogin.setForeground(Color.WHITE);
+        btnLogin.setBackground(primaryColor);
+        btnLogin.setBorder(BorderFactory.createEmptyBorder(10, 20, 10, 20));
+        btnLogin.setFocusPainted(false);
+        btnLogin.setOpaque(true);
+        btnLogin.setBorderPainted(false);
+        btnLogin.setPreferredSize(new Dimension(150, 40));
+
+        // Thêm hiệu ứng di chuột
+        btnLogin.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseEntered(MouseEvent e) {
+                btnLogin.setBackground(primaryHoverColor);
+            }
+            @Override
+            public void mouseExited(MouseEvent e) {
+                btnLogin.setBackground(primaryColor);
+            }
+        });
+        
+        // Cài đặt nhãn thông báo kết quả
+        lblDisplayResult.setFont(new Font("Arial", Font.PLAIN, 14));
+        lblDisplayResult.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
     }
 
     /**

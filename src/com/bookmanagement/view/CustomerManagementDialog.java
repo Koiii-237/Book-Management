@@ -22,121 +22,133 @@ public class CustomerManagementDialog extends javax.swing.JDialog {
     /**
      * Creates new form BookManagementDialog
      */
-    private Customer cs; // Đối tượng Book đang được chỉnh sửa (null nếu thêm mới)
-    private CustomerDAO csDAO;
-    private boolean dataSaved = false;
+    private static final Logger LOGGER = Logger.getLogger(CustomerManagementDialog.class.getName());
+    private CustomerDAO customerDAO;
+    private Customer currentCustomer; // Current Customer object (if in edit mode)
+    private boolean isEditMode; // true if in edit mode, false if adding new
+    private boolean isSucceeded = false; // Flag to check if the operation was successful
 
     /**
-     * Constructor
+     * Creates new form CustomerDialog
      *
-     * @param parent
-     * @param modal
-     * @param bookId
+     * @param parent Frame parent of the dialog.
+     * @param customer Customer object to edit (null if adding new).
+     * @param isEditMode true if in edit mode, false if adding new.
      */
-    public CustomerManagementDialog(java.awt.Frame parent, boolean modal, Customer cs) {
-        super(parent, modal);
-        this.csDAO = new CustomerDAO();
-        this.cs = cs;
+    public CustomerManagementDialog(java.awt.Frame parent, Customer customer, boolean isEditMode) {
+        super(parent, true); // Always modal
         initComponents();
-        setLocationRelativeTo(parent);
-        
-        
-        if (cs == null) {
-            // Chế độ Thêm mới: Đặt tiêu đề và xóa trắng các trường
-            setTitle("ADD NEW CUSTOMER!");
-            clearForm();
-            txtId.setToolTipText("Leave blanks if you want the system to generate code");
-            setSize(500, 300);
-            txtId.setEditable(true);
+        this.customerDAO = new CustomerDAO();
+        this.currentCustomer = customer;
+        this.isEditMode = isEditMode;
+        initDialogState(); // Set initial state of the dialog
+
+        this.setLocationRelativeTo(parent); // Center the dialog
+    }
+
+    /**
+     * Returns true if the operation in the dialog (add/edit) was successful.
+     * @return true if successful, false if cancelled or failed.
+     */
+    public boolean isSucceeded() {
+        return isSucceeded;
+    }
+
+    /**
+     * Sets the initial state of the dialog based on the mode (add new/edit).
+     */
+    private void initDialogState() {
+        if (isEditMode && currentCustomer != null) {
+            setSize(800, 250);
+            setTitle("SỬA THÔNG TIN KHÁCH HÀNG");
+            txtId.setText(currentCustomer.getId());
+            txtId.setEditable(false); // Do not allow editing ID
+            txtName.setText(currentCustomer.getName());
+            txtAddress.setText(currentCustomer.getAddress());
+            txtPhoneNumber.setText(currentCustomer.getPhoneNumber());
         } else {
-            // Chế độ Chỉnh sửa: Đặt tiêu đề và tải dữ liệu sách vào form
-            setTitle("UPDATE INFOR OF CUSTOMER");
-            loadBookDetails(cs);
-            setSize(500, 300);
-            txtId.setEditable(false);
-
+            setSize(800, 250);
+            setTitle("THÊM MỚI THÔNG TIN KHÁCH HÀNG");
+            txtId.setText("(AUTO GEN / Không sửa)");
+            txtId.setEditable(false); // Always not editable for new ID
+            txtName.setText("");
+            txtAddress.setText("");
+            txtPhoneNumber.setText("");
         }
     }
 
-    private void loadBookDetails(Customer cs) {
-        if (cs != null) {
-            txtId.setText(cs.getId());
-            txtName.setText(cs.getName());
-            txtAddress.setText(cs.getAddress());
-            txtPhoneNumber.setText(cs.getPhoneNumber());
-        }
-    }
-
-    private void clearForm() {
-        txtId.setText("");
-        txtName.setText("");
-        txtAddress.setText("");
-        txtPhoneNumber.setText("");
-    }
-
-
-    public void save() {
-        // 1. Lấy dữ liệu từ các trường nhập liệu
+    /**
+     * Collects data from UI fields to create or update a Customer object.
+     * @return Customer object with data from UI, or null if invalid.
+     */
+    private Customer collectFormData() {
+        String customerId = isEditMode ? currentCustomer.getId() : null; // ID will be auto-generated if adding new
+        
         String name = txtName.getText().trim();
-        String address = txtAddress.getText().trim();
-        String phoneNumber = txtPhoneNumber.getText().trim();
+        if (name.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Vui lòng nhập tên khách hàng.", "Lỗi", JOptionPane.ERROR_MESSAGE);
+            return null;
+        }
 
-        // 2. Validate dữ liệu nhập vào (kiểm tra rỗng, định dạng số, ...)
-        if (name.isEmpty() || address.isEmpty() || phoneNumber.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Please enter Book Name, Author, Price.", "NOTIFICATION!", JOptionPane.WARNING_MESSAGE);
-            return;
+        String address = txtAddress.getText().trim();
+        if (address.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Vui lòng nhập địa chỉ.", "Lỗi", JOptionPane.ERROR_MESSAGE);
+            return null;
+        }
+
+        String phoneNumber = txtPhoneNumber.getText().trim();
+        if (phoneNumber.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Vui lòng nhập số điện thoại.", "Lỗi", JOptionPane.ERROR_MESSAGE);
+            return null;
+        }
+        // Basic phone number validation (can be enhanced)
+        if (!phoneNumber.matches("^0[0-9]{9}$")) { // Starts with 0, followed by 9 digits
+            JOptionPane.showMessageDialog(this, "Số điện thoại không hợp lệ. Vui lòng nhập 10 chữ số và bắt đầu bằng 0.", "Lỗi", JOptionPane.ERROR_MESSAGE);
+            return null;
+        }
+
+        return new Customer(customerId, name, address, phoneNumber);
+    }
+
+    /**
+     * Handles the logic for saving (adding new or updating) the customer record.
+     */
+    private void handleSaveLogic() {
+        Customer customer = collectFormData();
+        if (customer == null) {
+            return; // Invalid data
         }
 
         try {
-            
-            boolean result;
-            if (cs == null) {
-                Customer cs = new Customer(name, address, phoneNumber);
-                result = csDAO.addCustomer(cs);
-                if (result) {
-                    JOptionPane.showMessageDialog(this, "Add new Customer complete!", "NOTIFICATION!", JOptionPane.INFORMATION_MESSAGE);
-                }
-                else{
-                    
-                }
-            } 
-            else {
-                cs.setName(name);
-                cs.setAddress(address);
-                cs.setPhoneNumber(phoneNumber);
-                result = csDAO.updateCustomer(cs);
-                if(result){
-                    JOptionPane.showMessageDialog(this, "Update new Customer complete!", "NOTIFICATION!", JOptionPane.INFORMATION_MESSAGE);
-                }
-                else{
-                    JOptionPane.showMessageDialog(this, "Update new Customer fail!", "NOTIFICATION!", JOptionPane.ERROR_MESSAGE);
-                }
+            boolean success;
+            if (isEditMode) {
+                success = customerDAO.updateCustomer(customer);
+            } else {
+                success = customerDAO.addCustomer(customer);
             }
 
-            dataSaved = true; // Đánh dấu là dữ liệu đã được lưu thành công
-            dispose(); // Đóng dialog
-
-        } catch (Exception ex) {
-            Logger.getLogger(CustomerManagementDialog.class.getName()).log(Level.SEVERE, "Lỗi khi lưu dữ liệu sách", ex);
-            JOptionPane.showMessageDialog(this, "ERROR: " + ex.getMessage(), "NOTIFICATION!", JOptionPane.ERROR_MESSAGE);
-            ex.printStackTrace();
+            if (success) {
+                isSucceeded = true; // Set success flag
+                JOptionPane.showMessageDialog(this, "Lưu thông tin khách hàng thành công!", "Thành công", JOptionPane.INFORMATION_MESSAGE);
+                dispose(); // Close dialog
+            } else {
+                JOptionPane.showMessageDialog(this, "Không thể lưu thông tin khách hàng.", "Lỗi", JOptionPane.ERROR_MESSAGE);
+            }
+        } catch (Exception ex) { // Catch generic Exception to log all possible issues
+            LOGGER.log(Level.SEVERE, "Lỗi khi lưu khách hàng: ", ex);
+            JOptionPane.showMessageDialog(this, "Lỗi khi lưu khách hàng: " + ex.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
         }
     }
 
-    public void cancel() {
-        dataSaved = false;
-        dispose();
-    }
-
-    public boolean isDataSaved() {
-        return dataSaved;
-    }
-
     /**
-     * This method is called from within the constructor to initialize the form.
-     * WARNING: Do NOT modify this code. The content of this method is always
-     * regenerated by the Form Editor.
+     * Handles the logic for cancelling the operation and closing the dialog.
      */
+    private void handleCancelLogic() {
+        isSucceeded = false; // Set failure flag
+        dispose(); // Close dialog
+    }
+    
+
     @SuppressWarnings("unchecked")
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
@@ -278,12 +290,12 @@ public class CustomerManagementDialog extends javax.swing.JDialog {
 
     private void btnSaveActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnSaveActionPerformed
         // TODO add your handling code here:
-        save();
+        handleSaveLogic();
     }//GEN-LAST:event_btnSaveActionPerformed
 
     private void btnCancelActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnCancelActionPerformed
         // TODO add your handling code here:
-        cancel();
+        handleCancelLogic();
     }//GEN-LAST:event_btnCancelActionPerformed
 
     /**
@@ -317,7 +329,7 @@ public class CustomerManagementDialog extends javax.swing.JDialog {
         /* Create and display the dialog */
         java.awt.EventQueue.invokeLater(new Runnable() {
             public void run() {
-                CustomerManagementDialog dialog = new CustomerManagementDialog(new javax.swing.JFrame(), true, null);
+                CustomerManagementDialog dialog = new CustomerManagementDialog(new javax.swing.JFrame(), null, false);
                 dialog.addWindowListener(new java.awt.event.WindowAdapter() {
                     @Override
                     public void windowClosing(java.awt.event.WindowEvent e) {

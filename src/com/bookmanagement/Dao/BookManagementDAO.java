@@ -25,7 +25,7 @@ import java.util.List;
 public class BookManagementDAO {
     private static final Logger LOGGER = Logger.getLogger(BookManagementDAO.class.getName());
     
-    private String generateNextMaSach() {
+    private synchronized String generateNextMaSach() {
         String maxID = null;
         String sql = "SELECT MAX(MaSach) FROM Sach WHERE MaSach LIKE 'BK%'"; 
         try (Connection conn = DBConnection.getConnection();
@@ -122,16 +122,8 @@ public class BookManagementDAO {
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, bookId);
             try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    book = new Book(
-                        rs.getString("MaSach"),
-                        rs.getString("TenSach"),
-                        rs.getString("TacGia"),
-                        rs.getString("TheLoai"),
-                        rs.getBigDecimal("DonGia"),
-                        rs.getInt("SoLuong"),
-                        rs.getString("MoTa")
-                    );
+                while (rs.next()) {
+                    return mapBookFromResultSet(rs);
                 }
             }
         } catch (SQLException ex) {
@@ -148,15 +140,7 @@ public class BookManagementDAO {
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(sql)) {
             while (rs.next()) {
-                books.add(new Book(
-                    rs.getString("MaSach"),
-                    rs.getString("TenSach"),
-                    rs.getString("TacGia"),
-                    rs.getString("TheLoai"),
-                    rs.getBigDecimal("DonGia"),
-                    rs.getInt("SoLuong"),
-                    rs.getString("MoTa")
-                ));
+                books.add(mapBookFromResultSet(rs));
             }
         } catch (SQLException ex) {
             LOGGER.log(Level.SEVERE, "Lỗi khi lấy tất cả sách", ex);

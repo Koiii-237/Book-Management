@@ -9,20 +9,21 @@ public class Order {
     private LocalDate orderDate;
     private BigDecimal totalAmount;
     private String customerID;
-    private String status; 
-
+    private String status;
+    private String paymentMethod;
+    
     public Order() {
     }
 
-    public Order(String orderID, LocalDate orderDate, BigDecimal totalAmount, String customerID, String status) {
+    public Order(String orderID, LocalDate orderDate, BigDecimal totalAmount, String customerID, String status, String paymentMethod) {
         this.orderID = orderID;
         this.orderDate = orderDate;
         this.totalAmount = totalAmount;
         this.customerID = customerID;
-        this.status = status; 
+        this.status = status;
+        this.paymentMethod = paymentMethod;
     }
 
-    // Getters và Setters
     public String getOrderID() {
         return orderID;
     }
@@ -55,7 +56,6 @@ public class Order {
         this.customerID = customerID;
     }
 
-    // <-- THÊM GETTER VÀ SETTER CHO STATUS DƯỚI ĐÂY
     public String getStatus() {
         return status;
     }
@@ -63,5 +63,14 @@ public class Order {
     public void setStatus(String status) {
         this.status = status;
     }
-    // Hết phần thêm
+
+    public String getPaymentMethod() {
+        return paymentMethod;
+    }
+
+    public void setPaymentMethod(String paymentMethod) {
+        this.paymentMethod = paymentMethod;
+    }
+    
+    
 }

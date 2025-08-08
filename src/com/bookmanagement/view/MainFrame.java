@@ -5,6 +5,12 @@
 package com.bookmanagement.view;
 
 import java.awt.CardLayout;
+import java.awt.Dimension;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
+import javax.swing.JFrame;
+import javax.swing.JPanel;
+import java.util.logging.Logger;
 
 /**
  *
@@ -12,46 +18,73 @@ import java.awt.CardLayout;
  */
 public class MainFrame extends javax.swing.JFrame {
 
-    /**
-     * Creates new form Main_Interface
-     */
+    private static final Logger LOGGER = Logger.getLogger(MainFrame.class.getName());
     
-    private CardLayout cards;
+    private CardLayout cardLayout;
+    private JPanel mainPanel;
+
+    private LoginPanel loginPanel;
     private HomePanel homePanel;
+
     public MainFrame() {
-        initComponents();
-        setLocationRelativeTo(null);
-        setSize(1200, 700);
-        
-        cards = (CardLayout) containerPanel.getLayout();
-        
-        // Khởi tạo homePanel TRƯỚC khi tạo LoginPanel
-        homePanel  = new HomePanel(this); 
-        System.out.println("HomePanel created. HomePanel hash: " + homePanel.hashCode());
+        // Set window properties
+        setTitle("BOOK MANAGEMENT");
+        setSize(1200, 800);
+        setMinimumSize(new Dimension(1000, 700));
+        setLocationRelativeTo(null); // Center the window on the screen
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
-        LoginPanel login = new LoginPanel(this); // LoginPanel giờ đây nhận một MainFrame đã có homePanel
-        System.out.println("LoginPanel created.");
+        // Handle window closing event to ensure the application exits cleanly
+        addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosing(WindowEvent e) {
+                System.exit(0);
+            }
+        });
 
-        // Thêm vào card stack
-        containerPanel.add(login, "LOGIN");
-        containerPanel.add(homePanel,  "HOME"); // Sử dụng biến thành viên
-        System.out.println("Panels added to container.");
+        // Initialize layout and main panel
+        cardLayout = new CardLayout();
+        mainPanel = new JPanel(cardLayout);
 
-        // Hiển thị login trước
-        cards.show(containerPanel, "LOGIN");
-        System.out.println("Showing LOGIN panel.");
+        // Initialize your user interface panels
+        // It is assumed these classes already exist
+        loginPanel = new LoginPanel(this);
+        homePanel = new HomePanel(this);
+
+        // Add panels to the main panel with a unique identifier
+        mainPanel.add(loginPanel, "Login");
+        mainPanel.add(homePanel, "Home");
+
+        // Add the main panel to the frame
+        add(mainPanel);
+
+        // Show the initial login screen
+        showPanel("Login");
     }
-  
-    public void showHome() {
-        cards.show(containerPanel, "HOME");
+
+    /**
+     * Method to switch between different panels.
+     * @param panelName The name of the panel to display ("Login" or "Home")
+     */
+    public void showPanel(String panelName) {
+        cardLayout.show(mainPanel, panelName);
+        LOGGER.info("Switching to panel: " + panelName);
     }
     
-    public void showLogin(){
-        cards.show(containerPanel, "LOGIN");
-    }
-    
+    /**
+     * Retrieves the HomePanel instance.
+     * @return The HomePanel instance.
+     */
     public HomePanel getHomePanel() {
         return homePanel;
+    }
+    
+    /**
+     * Retrieves the LoginPanel instance.
+     * @return The LoginPanel instance.
+     */
+    public LoginPanel getLoginPanel() {
+        return loginPanel;
     }
     
 

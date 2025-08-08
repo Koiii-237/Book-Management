@@ -7,7 +7,6 @@ package com.bookmanagement.DBPool;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
-import java.util.UUID;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 
@@ -41,17 +40,18 @@ public class DBConnection {
         return null;
     }
     
-    public static String generateID(String tableName, String idColumn, String prefix) throws SQLException {
-        String sql = String.format("SELECT MAX(%s) FROM %s", idColumn, tableName);
-        try (Connection conn = DBConnection.getConnection();
+    public static synchronized String generateID(String tableName, String idColumn, String prefix) throws SQLException {
+        String sql = "SELECT MAX(" + idColumn + ") FROM " + tableName;
+        try (Connection conn = getConnection();
              PreparedStatement ps = conn.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
             if (rs.next() && rs.getString(1) != null) {
                 String maxId = rs.getString(1);
-                int num = Integer.parseInt(maxId.replaceAll("\\D", "")) + 1;
-                return prefix + String.format("%03d", num);
+                String numberPart = maxId.replaceAll("\\D", ""); // Lấy phần số
+                int num = Integer.parseInt(numberPart) + 1;
+                return prefix + String.format("%0" + numberPart.length() + "d", num);
             } else {
-                return prefix + "001";
+                return prefix + "001"; // ID đầu tiên
             }
         }
     }
