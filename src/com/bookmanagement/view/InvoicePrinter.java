@@ -12,7 +12,7 @@ import com.bookmanagement.Dao.BookManagementDAO;
 import com.bookmanagement.model.Book;
 import com.bookmanagement.Dao.InvoiceDAO;
 import com.bookmanagement.model.Invoice;
-import com.bookmanagement.model.OrderDetail;
+import com.bookmanagement.model.OrderItem;
 
 import java.awt.*;
 import java.awt.print.*;
@@ -37,7 +37,7 @@ public class InvoicePrinter implements Printable {
 
     private static final Logger LOGGER = Logger.getLogger(InvoicePrinter.class.getName());
     private final Invoice header; // Thông tin hóa đơn chính
-    private final List<OrderDetail> items; // Danh sách các mặt hàng trong hóa đơn
+    private final List<OrderItem> items; // Danh sách các mặt hàng trong hóa đơn
     private final BookManagementDAO bookDAO; // DAO để truy xuất thông tin sách
 
     public InvoicePrinter(String orderId) throws SQLException {
@@ -108,7 +108,7 @@ public class InvoicePrinter implements Printable {
         // --- Danh sách các mặt hàng ---
         g.setFont(new Font("Serif", Font.PLAIN, 12));
         BigDecimal sum = BigDecimal.ZERO;
-        for (OrderDetail od : items) {
+        for (OrderItem od : items) {
             String bookName = "Không tìm thấy sách";
             try {
                 // Sử dụng BookManagementDAO đã được khởi tạo để lấy tên sách

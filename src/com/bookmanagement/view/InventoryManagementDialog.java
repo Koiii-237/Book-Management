@@ -9,9 +9,9 @@ package com.bookmanagement.view;
  * @author ADMIN
  */
 import com.bookmanagement.Dao.BookManagementDAO;
-import com.bookmanagement.Dao.InventoryDAO;
+import com.bookmanagement.Dao.WarehousesDAO;
 import com.bookmanagement.model.Book;
-import com.bookmanagement.model.Inventory;
+import com.bookmanagement.model.Warehouses;
 import java.awt.Frame;
 import java.awt.Window;
 import java.sql.SQLException;
@@ -29,9 +29,9 @@ public class InventoryManagementDialog extends javax.swing.JDialog {
      * Creates new form BookManagementDialog
      */
     private static final Logger LOGGER = Logger.getLogger(InventoryManagementDialog.class.getName());
-    private InventoryDAO inventoryDAO;
+    private WarehousesDAO inventoryDAO;
     private BookManagementDAO bookManagementDAO;
-    private Inventory currentInventory; // Đối tượng Inventory hiện tại (nếu đang sửa)
+    private Warehouses currentInventory; // Đối tượng Inventory hiện tại (nếu đang sửa)
     private boolean isEditMode; // true nếu đang ở chế độ sửa, false nếu thêm mới
     private boolean isSucceeded = false; // Biến để kiểm tra thao tác có thành công không
 
@@ -42,10 +42,10 @@ public class InventoryManagementDialog extends javax.swing.JDialog {
      * @param inventory Đối tượng Inventory để chỉnh sửa (null nếu thêm mới).
      * @param isEditMode true nếu là chế độ chỉnh sửa, false nếu thêm mới.
      */
-    public InventoryManagementDialog(java.awt.Frame parent, Inventory inventory, boolean isEditMode) {
+    public InventoryManagementDialog(java.awt.Frame parent, Warehouses inventory, boolean isEditMode) {
         super(parent, true); // Luôn là modal
         initComponents();
-        this.inventoryDAO = new InventoryDAO();
+        this.inventoryDAO = new WarehousesDAO();
         this.bookManagementDAO = new BookManagementDAO();
         this.currentInventory = inventory;
         this.isEditMode = isEditMode;
@@ -112,7 +112,7 @@ public class InventoryManagementDialog extends javax.swing.JDialog {
      * Thu thập dữ liệu từ các trường UI để tạo hoặc cập nhật đối tượng Inventory.
      * @return Đối tượng Inventory với dữ liệu từ UI, hoặc null nếu có lỗi.
      */
-    private Inventory collectFormData() {
+    private Warehouses collectFormData() {
         String inventoryId = isEditMode ? currentInventory.getInventoryId() : null; // ID sẽ được tạo tự động nếu thêm mới
         String selectedBookString = (String) cbBook.getSelectedItem();
         if (selectedBookString == null || selectedBookString.isEmpty()) {
@@ -139,14 +139,14 @@ public class InventoryManagementDialog extends javax.swing.JDialog {
             return null;
         }
 
-        return new Inventory(inventoryId, quantity, address, bookId);
+        return new Warehouses(inventoryId, quantity, address, bookId);
     }
 
     /**
      * Xử lý logic lưu (thêm mới hoặc cập nhật) bản ghi tồn kho.
      */
     private void handleSaveLogic() {
-        Inventory inv = collectFormData();
+        Warehouses inv = collectFormData();
         if (inv == null) {
             return; // Dữ liệu không hợp lệ
         }

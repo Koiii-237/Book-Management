@@ -23,7 +23,7 @@ import com.bookmanagement.Dao.OrderDetailDAO;
 import com.bookmanagement.model.Book;
 import com.bookmanagement.model.Customer;
 import com.bookmanagement.model.Order;
-import com.bookmanagement.model.OrderDetail;
+import com.bookmanagement.model.OrderItem;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -64,7 +64,7 @@ public class OrderDialog extends javax.swing.JDialog {
     private final DefaultComboBoxModel<String> bookComboBoxModel;
 
     // Danh sách sách trong giỏ hàng
-    private final List<OrderDetail> cartItems = new ArrayList<>();
+    private final List<OrderItem> cartItems = new ArrayList<>();
 
     // Tổng tiền của đơn hàng
     private BigDecimal totalAmount = BigDecimal.ZERO;
@@ -91,7 +91,7 @@ public class OrderDialog extends javax.swing.JDialog {
         initPaymentMethodPanelLogic(); // Khởi tạo logic cho panel phương thức thanh toán
     }
 
-    OrderDialog(Frame frame, boolean b, Order order, List<OrderDetail> orderDetails) {
+    OrderDialog(Frame frame, boolean b, Order order, List<OrderItem> orderDetails) {
         throw new UnsupportedOperationException("Not supported yet."); // Generated from nbfs://nbhost/SystemFileSystem/Templates/Classes/Code/GeneratedMethodBody
     }
 
@@ -228,7 +228,7 @@ public class OrderDialog extends javax.swing.JDialog {
         }
 
         // Cập nhật giỏ hàng
-        OrderDetail newItem = new OrderDetail();
+        OrderItem newItem = new OrderItem();
         newItem.setBookID(selectedBook.getBookID());
         newItem.setBookName(selectedBook.getBookName());
         newItem.setQuantity(quantity);
@@ -293,13 +293,13 @@ public class OrderDialog extends javax.swing.JDialog {
             }
 
             // Lưu OrderDetails vào database
-            for (OrderDetail detail : cartItems) {
+            for (OrderItem detail : cartItems) {
                 detail.setOrderID(newOrder.getOrderID()); // Gán OrderID cho OrderDetail
                 orderDetailDAO.insertOrderDetail(detail); // Cần có phương thức này trong OrderDetailDAO
             }
 
             // Cập nhật số lượng sách trong kho
-            for (OrderDetail detail : cartItems) {
+            for (OrderItem detail : cartItems) {
                 Book book = bookDAO.getBookById(detail.getBookID());
                 if (book != null) {
                     book.setQuantity(book.getQuantity() - detail.getQuantity());

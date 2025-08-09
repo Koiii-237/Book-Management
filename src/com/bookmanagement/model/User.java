@@ -4,6 +4,7 @@
  */
 package com.bookmanagement.model;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -13,57 +14,51 @@ import java.util.Arrays;
  * @author ADMIN
  */
 public class User {
-    private String userID;
-    private String userName;
-    private String password;
-    private String fullName;
+
+    private int userId;
+    private String username;
+    private String passwordHash;
     private String email;
-    private List<String> roles;
+    private LocalDateTime createdAt;
+    // Thêm danh sách permissions để sử dụng tiện lợi với bảng user_permissions
+    private List<String> permissions;
 
     public User() {
-        this.roles = new ArrayList<>();
+        this.permissions = new ArrayList<>();
     }
 
-    public User(String userID, String userName, String password, String fullName, String email, List<String> roles) {
-        this.userID = userID;
-        this.userName = userName;
-        this.password = password;
-        this.fullName = fullName;
+    public User(int userId, String username, String passwordHash, String email, LocalDateTime createdAt) {
+        this.userId = userId;
+        this.username = username;
+        this.passwordHash = passwordHash;
         this.email = email;
-        this.roles = roles;
+        this.createdAt = createdAt;
+        this.permissions = new ArrayList<>();
     }
 
-    // Getters và Setters
-    public String getUserID() {
-        return userID;
+    // Getters and Setters
+    public int getUserId() {
+        return userId;
     }
 
-    public void setUserID(String userID) {
-        this.userID = userID;
+    public void setUserId(int userId) {
+        this.userId = userId;
     }
 
-    public String getUserName() {
-        return userName;
+    public String getUsername() {
+        return username;
     }
 
-    public void setUserName(String userName) {
-        this.userName = userName;
+    public void setUsername(String username) {
+        this.username = username;
     }
 
-    public String getPassword() {
-        return password;
+    public String getPasswordHash() {
+        return passwordHash;
     }
 
-    public void setPassword(String password) {
-        this.password = password;
-    }
-
-    public String getFullName() {
-        return fullName;
-    }
-
-    public void setFullName(String fullName) {
-        this.fullName = fullName;
+    public void setPasswordHash(String passwordHash) {
+        this.passwordHash = passwordHash;
     }
 
     public String getEmail() {
@@ -74,17 +69,23 @@ public class User {
         this.email = email;
     }
 
-    public List<String> getRoles() {
-        return roles;
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
     }
 
-    public void setRoles(List<String> roles) {
-        this.roles = roles;
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
     }
-    
+
+    public List<String> getPermissions() {
+        return permissions;
+    }
+
+    public void setPermissions(List<String> permissions) {
+        this.permissions = permissions;
+    }
+
     public boolean hasPermission(String permission) {
-        // Kiểm tra xem danh sách quyền hạn (roles) có null không
-        // và kiểm tra xem nó có chứa quyền hạn (permission) được yêu cầu không.
-        return this.roles != null && this.roles.contains(permission);
+        return this.permissions.contains(permission);
     }
 }

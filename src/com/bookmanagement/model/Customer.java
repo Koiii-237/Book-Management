@@ -9,39 +9,55 @@ package com.bookmanagement.model;
  * @author ADMIN
  */
 public class Customer {
-    private String id;
-    private String name;
-    private String address;
-    private String phoneNumber;
 
-    public Customer(String id, String name, String address, String phoneNumber) {
-        this.id = id;
-        this.name = name;
-        this.address = address;
-        this.phoneNumber = phoneNumber;
-    }
+    private int customerId;
+    private String fullName;
+    private String email;
+    private String phone;
+    private String address;
 
     public Customer() {
     }
-    
-    public Customer(String name, String address, String phoneNumber){
-        this(null, name, address, phoneNumber);
+
+    public Customer(int customerId, String fullName, String email, String phone, String address) {
+        this.customerId = customerId;
+        this.fullName = fullName;
+        this.email = email;
+        this.phone = phone;
+        this.address = address;
     }
 
-    public String getId() {
-        return id;
+    // Getters and Setters
+    public int getCustomerId() {
+        return customerId;
     }
 
-    public void setId(String id) {
-        this.id = id;
+    public void setCustomerId(int customerId) {
+        this.customerId = customerId;
     }
 
-    public String getName() {
-        return name;
+    public String getFullName() {
+        return fullName;
     }
 
-    public void setName(String name) {
-        this.name = name;
+    public void setFullName(String fullName) {
+        this.fullName = fullName;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
+    public String getPhone() {
+        return phone;
+    }
+
+    public void setPhone(String phone) {
+        this.phone = phone;
     }
 
     public String getAddress() {
@@ -51,14 +67,4 @@ public class Customer {
     public void setAddress(String address) {
         this.address = address;
     }
-
-    public String getPhoneNumber() {
-        return phoneNumber;
-    }
-
-    public void setPhoneNumber(String phoneNumber) {
-        this.phoneNumber = phoneNumber;
-    }
-    
-    
 }

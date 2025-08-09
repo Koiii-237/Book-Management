@@ -9,9 +9,9 @@ package com.bookmanagement.view;
  * @author ADMIN
  */
 import com.bookmanagement.Dao.BookManagementDAO;
-import com.bookmanagement.Dao.InventoryDAO;
+import com.bookmanagement.Dao.WarehousesDAO;
 import com.bookmanagement.model.Book;
-import com.bookmanagement.model.Inventory;
+import com.bookmanagement.model.Warehouses;
 import javax.swing.JOptionPane;
 import javax.swing.table.DefaultTableModel;
 import java.awt.Frame;
@@ -30,7 +30,7 @@ import javax.swing.event.ListSelectionListener;
 public class InventoryManagementPanel extends javax.swing.JPanel {
 
     private static final Logger LOGGER = Logger.getLogger(InventoryManagementPanel.class.getName());
-    private InventoryDAO inventoryDAO;
+    private WarehousesDAO inventoryDAO;
     private BookManagementDAO bookManagementDAO; // Cần để lấy tên sách
     private DefaultTableModel tableModel;
 
@@ -40,7 +40,7 @@ public class InventoryManagementPanel extends javax.swing.JPanel {
     public InventoryManagementPanel() {
         initComponents();
         setSize(800, 500); // Kích thước mặc định của panel
-        this.inventoryDAO = new InventoryDAO();
+        this.inventoryDAO = new WarehousesDAO();
         this.bookManagementDAO = new BookManagementDAO(); // Khởi tạo BookManagementDAO
         initTable();
         fillToTable();
@@ -79,8 +79,8 @@ public class InventoryManagementPanel extends javax.swing.JPanel {
         tableModel.setRowCount(0); // Xóa các hàng hiện có
 
         try {
-            ArrayList<Inventory> allInventories = inventoryDAO.getAll();
-            for (Inventory inv : allInventories) {
+            ArrayList<Warehouses> allInventories = inventoryDAO.getAll();
+            for (Warehouses inv : allInventories) {
                 String bookName = "N/A";
                 try {
                     Book book = bookManagementDAO.getBookById(inv.getBookId());
@@ -121,7 +121,7 @@ public class InventoryManagementPanel extends javax.swing.JPanel {
      */
     private void performSearch() {
         String searchTerm = txtSearch.getText().trim();
-        ArrayList<Inventory> searchResults;
+        ArrayList<Warehouses> searchResults;
 
         try {
             if (searchTerm.isEmpty()) {
@@ -137,7 +137,7 @@ public class InventoryManagementPanel extends javax.swing.JPanel {
                 JOptionPane.showMessageDialog(this, "Không tìm thấy tồn kho với từ khóa: '" + searchTerm + "'.", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
             }
 
-            for (Inventory inv : searchResults) {
+            for (Warehouses inv : searchResults) {
                 String bookName = "N/A";
                 try {
                     Book book = bookManagementDAO.getBookById(inv.getBookId());
@@ -192,7 +192,7 @@ public class InventoryManagementPanel extends javax.swing.JPanel {
 
         String inventoryId = (String) tableModel.getValueAt(selectedRow, 0);
         try {
-            Inventory inventory = inventoryDAO.findById(inventoryId);
+            Warehouses inventory = inventoryDAO.findById(inventoryId);
             if (inventory != null) {
                 Frame parentFrame = (Frame) SwingUtilities.getWindowAncestor(this);
                 // Mở dialog ở chế độ chỉnh sửa (truyền đối tượng inventory và true cho isEditMode)

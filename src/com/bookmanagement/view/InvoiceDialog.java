@@ -12,7 +12,7 @@ import com.bookmanagement.Dao.BookManagementDAO;
 import com.bookmanagement.Dao.OrderDetailDAO;
 import com.bookmanagement.model.Book;
 import com.bookmanagement.model.Invoice;
-import com.bookmanagement.model.OrderDetail;
+import com.bookmanagement.model.OrderItem;
 
 import javax.swing.*;
 import java.awt.*;
@@ -126,7 +126,7 @@ public class InvoiceDialog extends javax.swing.JDialog {
 
         // 3. Tải chi tiết đơn hàng (các mặt hàng trong hóa đơn)
         // Sử dụng orderId từ đối tượng Invoice để lấy chi tiết đơn hàng
-        List<OrderDetail> items = orderDetailDAO.getOrderDetailByOrderId(invoice.getOrderId()); 
+        List<OrderItem> items = orderDetailDAO.getOrderDetailByOrderId(invoice.getOrderId()); 
         System.out.println("InvoiceDialog.loadData: Đã tìm kiếm chi tiết đơn hàng cho Order ID " + invoice.getOrderId() + ". Số lượng: " + (items != null ? items.size() : "null"));
 
         txtProducts.append(String.format("%-30s %5s %15s %15s%n",
@@ -138,7 +138,7 @@ public class InvoiceDialog extends javax.swing.JDialog {
             System.out.println("InvoiceDialog.loadData: Không có chi tiết đơn hàng nào được tìm thấy cho hóa đơn này.");
         } else {
             BigDecimal sum = BigDecimal.ZERO;
-            for (OrderDetail od : items) {
+            for (OrderItem od : items) {
                 // Sử dụng bookManagementDAO để lấy tên sách nếu cần, hoặc dùng od.getBookName() nếu đã có
                 Book b = bookManagementDAO.getBookById(od.getBookID());
                 String name = (b != null) ? b.getBookName() : od.getBookName() + " (Không rõ tên)"; // Ưu tiên tên từ OrderDetail nếu có

@@ -1,7 +1,7 @@
 package com.bookmanagement.Dao;
 
 import com.bookmanagement.DBPool.DBConnection;
-import com.bookmanagement.model.OrderDetail;
+import com.bookmanagement.model.OrderItem;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -20,7 +20,7 @@ public class OrderDetailDAO {
 
     private static final Logger LOGGER = Logger.getLogger(OrderDetailDAO.class.getName());
 
-    public boolean insertOrderDetail(OrderDetail orderDetail) {
+    public boolean insertOrderDetail(OrderItem orderDetail) {
         if (orderDetail == null || orderDetail.getOrderID() == null || orderDetail.getBookID() == null) {
             throw new IllegalArgumentException("Thông tin chi tiết đơn hàng không hợp lệ");
         }
@@ -49,8 +49,8 @@ public class OrderDetailDAO {
      * @throws SQLException Nếu có lỗi xảy ra trong quá trình truy vấn cơ sở dữ
      * liệu.
      */
-    public List<OrderDetail> getOrderDetailByOrderId(String orderId) throws SQLException {
-        List<OrderDetail> details = new ArrayList<>();
+    public List<OrderItem> getOrderDetailByOrderId(String orderId) throws SQLException {
+        List<OrderItem> details = new ArrayList<>();
         // SQL để lấy chi tiết đơn hàng, kết hợp với bảng Sach để lấy TenSach.
         String sql = "SELECT od.MaCTDH, od.MaDH, od.MaSach, od.SoLuong, od.DonGia, od.ThanhTien, b.TenSach "
                 + "FROM ChiTietDonHang od JOIN Sach b ON od.MaSach = b.MaSach WHERE od.MaDH = ?";
@@ -58,7 +58,7 @@ public class OrderDetailDAO {
             ps.setString(1, orderId);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
-                    details.add(new OrderDetail(
+                    details.add(new OrderItem(
                             rs.getString("MaCTDH"),
                             rs.getInt("SoLuong"),
                             rs.getBigDecimal("DonGia"),
@@ -103,8 +103,8 @@ public class OrderDetailDAO {
      * @return Đối tượng OrderDetail được tạo từ dữ liệu ResultSet.
      * @throws SQLException Nếu có lỗi khi truy cập dữ liệu từ ResultSet.
      */
-    private OrderDetail mapOrderDetailFromResultSet(ResultSet rs) throws SQLException {
-        OrderDetail detail = new OrderDetail();
+    private OrderItem mapOrderDetailFromResultSet(ResultSet rs) throws SQLException {
+        OrderItem detail = new OrderItem();
         detail.setOrderDetailID(rs.getString("MaCTDH"));
         detail.setQuantity(rs.getInt("SoLuong"));
         detail.setUnitPrice(rs.getBigDecimal("DonGia"));

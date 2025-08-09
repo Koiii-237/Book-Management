@@ -4,60 +4,57 @@
  */
 package com.bookmanagement.model;
 
-import java.math.BigDecimal;
-
 /**
  *
  * @author ADMIN
  */
 public class Inventory {
-    private String inventoryId;
-    private int qunatity;
-    private String address;
-    private String bookId;
+
+    private int inventoryId;
+    private int bookId;
+    private int warehouseId;
+    private int quantity;
 
     public Inventory() {
     }
 
-    public Inventory(String inventoryId, int qunatity, String address, String bookId) {
+    public Inventory(int inventoryId, int bookId, int warehouseId, int quantity) {
         this.inventoryId = inventoryId;
-        this.qunatity = qunatity;
-        this.address = address;
         this.bookId = bookId;
+        this.warehouseId = warehouseId;
+        this.quantity = quantity;
     }
-    
-    
-    public String getInventoryId() {
+
+    // Getters and Setters
+    public int getInventoryId() {
         return inventoryId;
     }
 
-    public void setInventoryId(String inventoryId) {
+    public void setInventoryId(int inventoryId) {
         this.inventoryId = inventoryId;
     }
 
-    public int getQunatity() {
-        return qunatity;
-    }
-
-    public void setQunatity(int qunatity) {
-        this.qunatity = qunatity;
-    }
-
-    public String getAddress() {
-        return address;
-    }
-
-    public void setAddress(String address) {
-        this.address = address;
-    }
-    
-    public String getBookId() {
+    public int getBookId() {
         return bookId;
     }
 
-    public void setBookId(String bookId) {
+    public void setBookId(int bookId) {
         this.bookId = bookId;
     }
-    
-    
+
+    public int getWarehouseId() {
+        return warehouseId;
+    }
+
+    public void setWarehouseId(int warehouseId) {
+        this.warehouseId = warehouseId;
+    }
+
+    public int getQuantity() {
+        return quantity;
+    }
+
+    public void setQuantity(int quantity) {
+        this.quantity = quantity;
+    }
 }

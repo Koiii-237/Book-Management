@@ -9,51 +9,41 @@ import java.util.Arrays;
  * Lớp đại diện cho một cuốn sách trong hệ thống quản lý sách.
  */
 public class Book {
-    private String bookID;
-    private String bookName;
-    private String author;
-    private String genre; // Thể loại
-    private BigDecimal price; // Giá sách, sử dụng BigDecimal để chính xác hơn với tiền tệ
-    private int quantity; // Số lượng sách trong kho - THUỘC TÍNH MỚI
-    private String description; // Mô tả sách
 
-    /**
-     * Constructor mặc định.
-     */
+    private int bookId;
+    private String title;
+    private String author;
+    private String isbn;
+    private BigDecimal price;
+    private String category;
+
     public Book() {
     }
 
-    public Book(String bookID, String bookName, String author, String genre,
-                BigDecimal price, int quantity, String description) {
-        this.bookID = bookID;
-        this.bookName = bookName;
+    public Book(int bookId, String title, String author, String isbn, BigDecimal price, String category) {
+        this.bookId = bookId;
+        this.title = title;
         this.author = author;
-        this.genre = genre;
+        this.isbn = isbn;
         this.price = price;
-        this.quantity = quantity; // Khởi tạo thuộc tính mới
-        this.description = description;
+        this.category = category;
     }
 
-    public Book(String author, String name, String author0, String description, BigDecimal price) {
-        throw new UnsupportedOperationException("Not supported yet."); // Generated from nbfs://nbhost/SystemFileSystem/Templates/Classes/Code/GeneratedMethodBody
+    // Getters and Setters
+    public int getBookId() {
+        return bookId;
     }
 
-    // --- Getters và Setters ---
-
-    public String getBookID() {
-        return bookID;
+    public void setBookId(int bookId) {
+        this.bookId = bookId;
     }
 
-    public void setBookID(String bookID) {
-        this.bookID = bookID;
+    public String getTitle() {
+        return title;
     }
 
-    public String getBookName() {
-        return bookName;
-    }
-
-    public void setBookName(String bookName) {
-        this.bookName = bookName;
+    public void setTitle(String title) {
+        this.title = title;
     }
 
     public String getAuthor() {
@@ -64,12 +54,12 @@ public class Book {
         this.author = author;
     }
 
-    public String getGenre() {
-        return genre;
+    public String getIsbn() {
+        return isbn;
     }
 
-    public void setGenre(String genre) {
-        this.genre = genre;
+    public void setIsbn(String isbn) {
+        this.isbn = isbn;
     }
 
     public BigDecimal getPrice() {
@@ -80,37 +70,11 @@ public class Book {
         this.price = price;
     }
 
-    /**
-     * Lấy số lượng sách tồn kho.
-     * @return Số lượng sách.
-     */
-    public int getQuantity() {
-        return quantity;
+    public String getCategory() {
+        return category;
     }
 
-
-    public void setQuantity(int quantity) {
-        this.quantity = quantity;
-    }
-
-    public String getDescription() {
-        return description;
-    }
-
-    public void setDescription(String description) {
-        this.description = description;
-    }
-
-    @Override
-    public String toString() {
-        return "Book{" +
-               "bookID='" + bookID + '\'' +
-               ", bookName='" + bookName + '\'' +
-               ", author='" + author + '\'' +
-               ", genre='" + genre + '\'' +
-               ", price=" + price +
-               ", quantity=" + quantity + // Thêm vào toString
-               ", description='" + description + '\'' +
-               '}';
+    public void setCategory(String category) {
+        this.category = category;
     }
 }

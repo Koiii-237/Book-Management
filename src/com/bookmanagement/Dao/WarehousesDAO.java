@@ -6,7 +6,7 @@ package com.bookmanagement.Dao;
 
 import com.bookmanagement.DBPool.DBConnection;
 import com.bookmanagement.model.Book;
-import com.bookmanagement.model.Inventory;
+import com.bookmanagement.model.Warehouses;
 import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -24,10 +24,10 @@ import java.util.List;
  *
  * @author ADMIN
  */
-public class InventoryDAO {
-    private static final Logger LOGGER = Logger.getLogger(InventoryDAO.class.getName());
+public class WarehousesDAO {
+    private static final Logger LOGGER = Logger.getLogger(WarehousesDAO.class.getName());
 
-    public boolean insert(Inventory inv) throws SQLException {
+    public boolean insert(Warehouses inv) throws SQLException {
         inv.setInventoryId(DBConnection.generateID("Kho", "MaKho", "KHO"));
         String sql = "INSERT INTO Kho(MaKho, SoLuongTonKho, ViTri, MaSach) VALUES(?,?,?,?)";
         try (Connection conn = DBConnection.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -44,7 +44,7 @@ public class InventoryDAO {
         }
     }
 
-    public boolean update(Inventory inv) throws SQLException {
+    public boolean update(Warehouses inv) throws SQLException {
         String sql = "UPDATE Kho SET SoLuongTonKho=?, ViTri=?, MaSach=? WHERE MaKho=?";
         try (Connection conn = DBConnection.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, inv.getQunatity());
@@ -71,13 +71,13 @@ public class InventoryDAO {
         }
     }
 
-    public Inventory findById(String inventoryId) throws SQLException {
+    public Warehouses findById(String inventoryId) throws SQLException {
         String sql = "SELECT * FROM Kho WHERE MaKho=?";
         try (Connection conn = DBConnection.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, inventoryId);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
-                    return new Inventory(rs.getString("MaKho"), rs.getInt("SoLuongTonKho"),
+                    return new Warehouses(rs.getString("MaKho"), rs.getInt("SoLuongTonKho"),
                         rs.getString("ViTri"), rs.getString("MaSach"));
                 }
             }
@@ -85,20 +85,20 @@ public class InventoryDAO {
         return null;
     }
 
-    public ArrayList<Inventory> getAll() throws SQLException {
-        ArrayList<Inventory> list = new ArrayList<>();
+    public ArrayList<Warehouses> getAll() throws SQLException {
+        ArrayList<Warehouses> list = new ArrayList<>();
         String sql = "SELECT * FROM Kho";
         try (Connection conn = DBConnection.getConnection(); Statement stmt = conn.createStatement(); ResultSet rs = stmt.executeQuery(sql)) {
             while (rs.next()) {
-                list.add(new Inventory(rs.getString("MaKho"), rs.getInt("SoLuongTonKho"),
+                list.add(new Warehouses(rs.getString("MaKho"), rs.getInt("SoLuongTonKho"),
                     rs.getString("ViTri"), rs.getString("MaSach")));
             }
         }
         return list;
     }
 
-    public ArrayList<Inventory> searchInventory(String search) {
-        ArrayList<Inventory> list = new ArrayList<>();
+    public ArrayList<Warehouses> searchInventory(String search) {
+        ArrayList<Warehouses> list = new ArrayList<>();
         String sql = "SELECT * FROM Kho WHERE LOWER(MaSach) LIKE ? OR LOWER(ViTri) LIKE ? ORDER BY SoLuongTonKho DESC";
         try (Connection conn = DBConnection.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
             String p = "%" + search.toLowerCase() + "%";
@@ -106,7 +106,7 @@ public class InventoryDAO {
             ps.setString(2, p);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
-                    list.add(new Inventory(rs.getString("MaKho"), rs.getInt("SoLuongTonKho"),
+                    list.add(new Warehouses(rs.getString("MaKho"), rs.getInt("SoLuongTonKho"),
                         rs.getString("ViTri"), rs.getString("MaSach")));
                 }
             }
