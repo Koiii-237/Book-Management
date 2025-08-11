@@ -8,15 +8,19 @@ package com.bookmanagement.view;
  *
  * @author ADMIN
  */
-import com.bookmanagement.Dao.BookManagementDAO;
-import com.bookmanagement.Dao.WarehousesDAO;
-import com.bookmanagement.model.Book;
-import com.bookmanagement.model.Warehouses;
+import com.bookmanagement.Dao.InventoryDAO;
+import com.bookmanagement.Dao.StockTransactionDAO;
+import com.bookmanagement.Dao.WarehouseDAO;
+import com.bookmanagement.dao.BookDAO;
+import com.bookmanagement.model.Inventory;
+import com.bookmanagement.model.StockTransaction;
 import javax.swing.JOptionPane;
 import javax.swing.table.DefaultTableModel;
 import java.awt.Frame;
 import java.sql.SQLException;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.SwingUtilities;
@@ -24,241 +28,253 @@ import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 
 /**
- * Lớp JPanel để quản lý thông tin tồn kho sách.
- * Bao gồm các chức năng: hiển thị danh sách, tìm kiếm, thêm mới, sửa, xóa.
+ * Lớp JPanel để quản lý thông tin tồn kho sách. Bao gồm các chức năng: hiển thị
+ * danh sách, tìm kiếm, thêm mới, sửa, xóa.
  */
 public class InventoryManagementPanel extends javax.swing.JPanel {
 
     private static final Logger LOGGER = Logger.getLogger(InventoryManagementPanel.class.getName());
-    private WarehousesDAO inventoryDAO;
-    private BookManagementDAO bookManagementDAO; // Cần để lấy tên sách
+    private InventoryDAO inventoryDAO;
+    private BookDAO bookDAO;
+    private WarehouseDAO warehouseDAO;
+    private StockTransactionDAO stockTransactionDAO;
     private DefaultTableModel tableModel;
+    private List<Inventory> allInventories;
 
-    /**
-     * Creates new form InventoryManagementPanel
-     */
     public InventoryManagementPanel() {
         initComponents();
-        setSize(800, 500); // Kích thước mặc định của panel
-        this.inventoryDAO = new WarehousesDAO();
-        this.bookManagementDAO = new BookManagementDAO(); // Khởi tạo BookManagementDAO
+        inventoryDAO = new InventoryDAO();
+        bookDAO = new BookDAO(); // Initialize the new DAO
+        warehouseDAO = new WarehouseDAO(); // Initialize the new DAO
+        stockTransactionDAO = new StockTransactionDAO();
         initTable();
         fillToTable();
 
-        // Thêm ListSelectionListener cho bảng để kích hoạt/vô hiệu hóa các nút
         tblInventory.getSelectionModel().addListSelectionListener(new ListSelectionListener() {
             @Override
             public void valueChanged(ListSelectionEvent e) {
-                if (!e.getValueIsAdjusting()) { // Đảm bảo sự kiện chỉ kích hoạt một lần khi chọn xong
-                    updateButtonStates();
+                if (!e.getValueIsAdjusting()) {
+                    boolean rowSelected = tblInventory.getSelectedRow() != -1;
+                    btnUpdate.setEnabled(rowSelected);
+                    btnDelete.setEnabled(rowSelected);
+                    btnImport.setEnabled(rowSelected);
+                    btnExport.setEnabled(rowSelected);
                 }
             }
         });
-        updateButtonStates(); // Cập nhật trạng thái nút ban đầu
+        // Disable buttons initially
+        btnUpdate.setEnabled(false);
+        btnDelete.setEnabled(false);
+        btnImport.setEnabled(false);
+        btnExport.setEnabled(false);
     }
 
-    /**
-     * Khởi tạo cấu trúc bảng tồn kho.
-     */
-    private void initTable() {
+    public void initTable() {
         tableModel = new DefaultTableModel(
-                new Object[]{"Mã Tồn Kho", "Mã Sách", "Tên Sách", "Số Lượng", "Vị Trí Kho"}, 0
+                new Object[]{"Inventory ID", "Book ID", "Book Name", "Warehouse ID", "Warehouse Name", "Quantity"},
+                0
         ) {
             @Override
             public boolean isCellEditable(int row, int column) {
-                return false; // Không cho phép chỉnh sửa trực tiếp trên bảng
+                return false; // Prevent direct editing on the table
             }
         };
         tblInventory.setModel(tableModel);
     }
 
-    /**
-     * Đổ dữ liệu từ cơ sở dữ liệu vào bảng tồn kho.
-     */
-    private void fillToTable() {
-        tableModel.setRowCount(0); // Xóa các hàng hiện có
-
+    public void fillToTable() {
         try {
-            ArrayList<Warehouses> allInventories = inventoryDAO.getAll();
-            for (Warehouses inv : allInventories) {
-                String bookName = "N/A";
-                try {
-                    Book book = bookManagementDAO.getBookById(inv.getBookId());
-                    if (book != null) {
-                        bookName = book.getBookName();
-                    }
-                } catch (SQLException ex) {
-                    LOGGER.log(Level.WARNING, "Không thể lấy tên sách cho mã sách: " + inv.getBookId(), ex);
-                }
-
-                tableModel.addRow(new Object[]{
-                    inv.getInventoryId(),
-                    inv.getBookId(),
-                    bookName,
-                    inv.getQunatity(), // Lưu ý: getQunatity() có thể là lỗi chính tả, nên là getQuantity()
-                    inv.getAddress()
-                });
-            }
-        } catch (SQLException e) {
-            LOGGER.log(Level.SEVERE, "Lỗi khi tải dữ liệu tồn kho: " + e.getMessage(), e);
-            JOptionPane.showMessageDialog(this, "Lỗi khi tải dữ liệu tồn kho: " + e.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
+            allInventories = inventoryDAO.getAllInventories();
+            refreshTableWithData(allInventories);
+        } catch (SQLException ex) {
+            LOGGER.log(Level.SEVERE, "Error loading inventory list", ex);
+            JOptionPane.showMessageDialog(this, "Error loading data: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
         }
     }
 
-    /**
-     * Cập nhật trạng thái kích hoạt/vô hiệu hóa của các nút "SỬA" và "XÓA".
-     */
-    private void updateButtonStates() {
-        int selectedRow = tblInventory.getSelectedRow();
-        boolean isRowSelected = selectedRow != -1;
-
-        btnUpdate.setEnabled(isRowSelected);
-        btnDelete.setEnabled(isRowSelected);
-    }
-
-    /**
-     * Thực hiện chức năng tìm kiếm tồn kho dựa trên từ khóa.
-     */
-    private void performSearch() {
-        String searchTerm = txtSearch.getText().trim();
-        ArrayList<Warehouses> searchResults;
-
-        try {
-            if (searchTerm.isEmpty()) {
-                searchResults = inventoryDAO.getAll(); // Nếu trống, hiển thị tất cả
-            } else {
-                // Giả sử searchInventory có thể tìm kiếm theo Mã Sách hoặc Vị Trí Kho
-                searchResults = inventoryDAO.searchInventory(searchTerm);
-            }
-
-            tableModel.setRowCount(0); // Xóa dữ liệu cũ
-
-            if (searchResults.isEmpty() && !searchTerm.isEmpty()) {
-                JOptionPane.showMessageDialog(this, "Không tìm thấy tồn kho với từ khóa: '" + searchTerm + "'.", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
-            }
-
-            for (Warehouses inv : searchResults) {
-                String bookName = "N/A";
+    private void refreshTableWithData(List<Inventory> inventories) {
+        tableModel.setRowCount(0);
+        if (inventories != null) {
+            for (Inventory inventory : inventories) {
+                String bookName = "Not Found";
+                String warehouseName = "Not Found";
                 try {
-                    Book book = bookManagementDAO.getBookById(inv.getBookId());
-                    if (book != null) {
-                        bookName = book.getBookName();
-                    }
+                    bookName = bookDAO.getBookById(inventory.getBookId()).getTitle();
+                    warehouseName = warehouseDAO.getWarehouseById(inventory.getWarehouseId()).getWarehouseName();
                 } catch (SQLException ex) {
-                    LOGGER.log(Level.WARNING, "Không thể lấy tên sách cho mã sách: " + inv.getBookId(), ex);
+                    LOGGER.log(Level.WARNING, "Could not retrieve book or warehouse name for inventory: " + inventory.getInventoryId(), ex);
                 }
+
                 tableModel.addRow(new Object[]{
-                    inv.getInventoryId(),
-                    inv.getBookId(),
+                    inventory.getInventoryId(),
+                    inventory.getBookId(),
                     bookName,
-                    inv.getQunatity(),
-                    inv.getAddress()
+                    inventory.getWarehouseId(),
+                    warehouseName,
+                    inventory.getQuantity()
                 });
             }
-            updateButtonStates(); // Cập nhật trạng thái nút sau khi tìm kiếm
-        } catch (SQLException e) {
-            LOGGER.log(Level.SEVERE, "Lỗi khi tìm kiếm tồn kho: " + e.getMessage(), e);
-            JOptionPane.showMessageDialog(this, "Lỗi khi tìm kiếm tồn kho: " + e.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
         }
     }
 
-    /**
-     * Mở InventoryDialog để thêm mới một bản ghi tồn kho.
-     */
     private void handleAddNewInventory() {
         Frame parentFrame = (Frame) SwingUtilities.getWindowAncestor(this);
-        // Mở dialog ở chế độ thêm mới (truyền null cho inventory và false cho isEditMode)
-        InventoryManagementDialog dialog = new InventoryManagementDialog(parentFrame, null, false);
+        InventoryManagementDialog dialog = new InventoryManagementDialog(parentFrame, true, null);
         dialog.setVisible(true);
-
-        if (dialog.isSucceeded()) { // Kiểm tra xem thao tác có thành công không
-            fillToTable(); // Làm mới bảng sau khi thêm mới thành công
-            JOptionPane.showMessageDialog(this, "Thêm mới tồn kho thành công!", "Thành công", JOptionPane.INFORMATION_MESSAGE);
-        } else {
-            JOptionPane.showMessageDialog(this, "Thao tác thêm mới bị hủy hoặc thất bại.", "Thông báo", JOptionPane.WARNING_MESSAGE);
+        if (dialog.isDataSaved()) {
+            fillToTable();
         }
-        updateButtonStates(); // Cập nhật trạng thái nút sau khi dialog đóng
     }
 
-    /**
-     * Mở InventoryDialog để chỉnh sửa bản ghi tồn kho được chọn.
-     */
     private void handleEditInventory() {
         int selectedRow = tblInventory.getSelectedRow();
-        if (selectedRow == -1) {
-            JOptionPane.showMessageDialog(this, "Vui lòng chọn một bản ghi tồn kho để sửa.", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
-            return;
-        }
-
-        String inventoryId = (String) tableModel.getValueAt(selectedRow, 0);
-        try {
-            Warehouses inventory = inventoryDAO.findById(inventoryId);
-            if (inventory != null) {
-                Frame parentFrame = (Frame) SwingUtilities.getWindowAncestor(this);
-                // Mở dialog ở chế độ chỉnh sửa (truyền đối tượng inventory và true cho isEditMode)
-                InventoryManagementDialog dialog = new InventoryManagementDialog(parentFrame, inventory, true);
-                dialog.setVisible(true);
-
-                if (dialog.isSucceeded()) { // Kiểm tra xem thao tác có thành công không
-                    fillToTable(); // Làm mới bảng sau khi sửa thành công
-                    JOptionPane.showMessageDialog(this, "Cập nhật tồn kho thành công!", "Thành công", JOptionPane.INFORMATION_MESSAGE);
-                } else {
-                    JOptionPane.showMessageDialog(this, "Thao tác cập nhật bị hủy hoặc thất bại.", "Thông báo", JOptionPane.WARNING_MESSAGE);
-                }
-            } else {
-                JOptionPane.showMessageDialog(this, "Không tìm thấy bản ghi tồn kho để sửa.", "Lỗi", JOptionPane.ERROR_MESSAGE);
-            }
-        } catch (SQLException ex) {
-            LOGGER.log(Level.SEVERE, "Lỗi khi tải bản ghi tồn kho để sửa: " + inventoryId, ex);
-            JOptionPane.showMessageDialog(this, "Lỗi khi tải bản ghi tồn kho: " + ex.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
-        }
-        updateButtonStates(); // Cập nhật trạng thái nút sau khi dialog đóng
-    }
-
-    /**
-     * Xóa bản ghi tồn kho được chọn.
-     */
-    private void handleDeleteInventory() {
-        int selectedRow = tblInventory.getSelectedRow();
-        if (selectedRow == -1) {
-            JOptionPane.showMessageDialog(this, "Vui lòng chọn một bản ghi tồn kho để xóa.", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
-            return;
-        }
-
-        String inventoryId = (String) tableModel.getValueAt(selectedRow, 0);
-        String bookName = (String) tableModel.getValueAt(selectedRow, 2); // Tên sách để hiển thị trong thông báo
-
-        int confirm = JOptionPane.showConfirmDialog(this,
-                "Bạn có chắc chắn muốn xóa bản ghi tồn kho của sách '" + bookName + "' (Mã Tồn Kho: " + inventoryId + ") không?",
-                "Xác nhận xóa", JOptionPane.YES_NO_OPTION);
-
-        if (confirm == JOptionPane.YES_OPTION) {
+        if (selectedRow != -1) {
+            int inventoryId = (int) tableModel.getValueAt(selectedRow, 0);
             try {
-                boolean success = inventoryDAO.delete(inventoryId);
-                if (success) {
-                    JOptionPane.showMessageDialog(this, "Xóa tồn kho thành công!", "Thành công", JOptionPane.INFORMATION_MESSAGE);
-                    fillToTable(); // Làm mới bảng
+                Inventory inventory = inventoryDAO.getInventoryById(inventoryId);
+                if (inventory != null) {
+                    Frame parentFrame = (Frame) SwingUtilities.getWindowAncestor(this);
+                    InventoryManagementDialog dialog = new InventoryManagementDialog(parentFrame, true, inventory);
+                    dialog.setVisible(true);
+                    if (dialog.isDataSaved()) {
+                        fillToTable();
+                    }
                 } else {
-                    JOptionPane.showMessageDialog(this, "Không thể xóa tồn kho.", "Lỗi", JOptionPane.ERROR_MESSAGE);
+                    JOptionPane.showMessageDialog(this, "Inventory record not found.", "Error", JOptionPane.ERROR_MESSAGE);
                 }
             } catch (SQLException ex) {
-                LOGGER.log(Level.SEVERE, "Lỗi khi xóa tồn kho: " + inventoryId, ex);
-                JOptionPane.showMessageDialog(this, "Lỗi khi xóa tồn kho: " + ex.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
+                LOGGER.log(Level.SEVERE, "Error fetching inventory data for editing", ex);
+                JOptionPane.showMessageDialog(this, "Error fetching data: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
             }
         }
-        updateButtonStates(); // Cập nhật trạng thái nút sau khi xóa
+    }
+
+    private void handleDeleteInventory() {
+        int selectedRow = tblInventory.getSelectedRow();
+        if (selectedRow != -1) {
+            int confirm = JOptionPane.showConfirmDialog(this, "Are you sure you want to delete this inventory record?", "Confirm Deletion", JOptionPane.YES_NO_OPTION);
+            if (confirm == JOptionPane.YES_OPTION) {
+                int inventoryId = (int) tableModel.getValueAt(selectedRow, 0);
+                try {
+                    Inventory inventoryToDelete = inventoryDAO.getInventoryById(inventoryId);
+                    if (inventoryDAO.deleteInventory(inventoryId)) {
+                        stockTransactionDAO.addStockTransaction(new StockTransaction(
+                                0,
+                                inventoryToDelete.getBookId(),
+                                inventoryToDelete.getWarehouseId(),
+                                null,
+                                inventoryToDelete.getQuantity(),
+                                "DELETE",
+                                LocalDateTime.now()
+                        ));
+                        JOptionPane.showMessageDialog(this, "Inventory deleted successfully.", "Success", JOptionPane.INFORMATION_MESSAGE);
+                        fillToTable();
+                    } else {
+                        JOptionPane.showMessageDialog(this, "Failed to delete inventory.", "Error", JOptionPane.ERROR_MESSAGE);
+                    }
+                } catch (SQLException ex) {
+                    Logger.getLogger(InventoryManagementPanel.class.getName()).log(Level.SEVERE, null, ex);
+                    JOptionPane.showMessageDialog(this, "Error when delete inventory: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        }
+    }
+
+    private void handleRefreshTable() {
+        fillToTable();
+    }
+
+    private void search() {
+        String searchText = txtSearch.getText().toLowerCase().trim();
+        List<Inventory> filteredList = new ArrayList<>();
+        if (allInventories != null) {
+            for (Inventory inventory : allInventories) {
+                String bookName = "";
+                String warehouseName = "";
+                bookName = bookDAO.getBookById(inventory.getBookId()).getTitle();
+                try {
+                    warehouseName = warehouseDAO.getWarehouseById(inventory.getWarehouseId()).getWarehouseName();
+                } catch (SQLException ex) {
+                    Logger.getLogger(InventoryManagementPanel.class.getName()).log(Level.SEVERE, null, ex);
+                }
+
+                if (String.valueOf(inventory.getInventoryId()).contains(searchText)
+                        || String.valueOf(inventory.getBookId()).contains(searchText)
+                        || String.valueOf(inventory.getWarehouseId()).contains(searchText)
+                        || (bookName != null && bookName.toLowerCase().contains(searchText))
+                        || (warehouseName != null && warehouseName.toLowerCase().contains(searchText))) {
+                    filteredList.add(inventory);
+                }
+            }
+        }
+        refreshTableWithData(filteredList);
+    }
+
+    private void handleImportInventory() {
+        int selectedRow = tblInventory.getSelectedRow();
+        if (selectedRow != -1) {
+            int bookId = (int) tableModel.getValueAt(selectedRow, 1);
+            int warehouseId = (int) tableModel.getValueAt(selectedRow, 3);
+            int currentQuantity = (int) tableModel.getValueAt(selectedRow, 5);
+
+            String input = JOptionPane.showInputDialog(this, "Enter the quantity to add:", "Import Stock", JOptionPane.QUESTION_MESSAGE);
+            if (input != null && !input.isEmpty()) {
+                try {
+                    int quantityToAdd = Integer.parseInt(input);
+                    if (quantityToAdd <= 0) {
+                        JOptionPane.showMessageDialog(this, "Quantity must be a positive number.", "Error", JOptionPane.ERROR_MESSAGE);
+                        return;
+                    }
+
+                    if (inventoryDAO.updateInventoryQuantity(bookId, warehouseId, quantityToAdd)) {
+                        JOptionPane.showMessageDialog(this, "Stock imported successfully. New quantity is: " + (currentQuantity + quantityToAdd), "Success", JOptionPane.INFORMATION_MESSAGE);
+                        fillToTable();
+                    } else {
+                        JOptionPane.showMessageDialog(this, "Failed to import stock. The inventory record may not exist.", "Error", JOptionPane.ERROR_MESSAGE);
+                    }
+                } catch (NumberFormatException e) {
+                    JOptionPane.showMessageDialog(this, "Please enter a valid number.", "Error", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        }
     }
 
     /**
-     * Làm mới toàn bộ dữ liệu trong bảng.
+     * Handles the stock export function.
      */
-    private void handleRefreshTable() {
-        fillToTable();
-        txtSearch.setText(""); // Xóa nội dung tìm kiếm
-        updateButtonStates();
-        JOptionPane.showMessageDialog(this, "Dữ liệu đã được làm mới.", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
+    private void handleExportInventory() {
+        int selectedRow = tblInventory.getSelectedRow();
+        if (selectedRow != -1) {
+            int bookId = (int) tableModel.getValueAt(selectedRow, 1);
+            int warehouseId = (int) tableModel.getValueAt(selectedRow, 3);
+            int currentQuantity = (int) tableModel.getValueAt(selectedRow, 5);
+
+            String input = JOptionPane.showInputDialog(this, "Enter the quantity to export:", "Export Stock", JOptionPane.QUESTION_MESSAGE);
+            if (input != null && !input.isEmpty()) {
+                try {
+                    int quantityToExport = Integer.parseInt(input);
+                    if (quantityToExport <= 0) {
+                        JOptionPane.showMessageDialog(this, "Quantity must be a positive number.", "Error", JOptionPane.ERROR_MESSAGE);
+                        return;
+                    }
+
+                    if (quantityToExport > currentQuantity) {
+                        JOptionPane.showMessageDialog(this, "Export quantity cannot be greater than the current stock (" + currentQuantity + ").", "Error", JOptionPane.ERROR_MESSAGE);
+                        return;
+                    }
+
+                    if (inventoryDAO.updateInventoryQuantity(bookId, warehouseId, -quantityToExport)) {
+                        JOptionPane.showMessageDialog(this, "Stock exported successfully. New quantity is: " + (currentQuantity - quantityToExport), "Success", JOptionPane.INFORMATION_MESSAGE);
+                        fillToTable();
+                    } else {
+                        JOptionPane.showMessageDialog(this, "Failed to export stock. Insufficient stock or a database error occurred.", "Error", JOptionPane.ERROR_MESSAGE);
+                    }
+                } catch (NumberFormatException e) {
+                    JOptionPane.showMessageDialog(this, "Please enter a valid number.", "Error", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        }
     }
-    
 
     /**
      * This method is called from within the constructor to initialize the form.
@@ -278,6 +294,8 @@ public class InventoryManagementPanel extends javax.swing.JPanel {
         btnUpdate = new javax.swing.JButton();
         btnDelete = new javax.swing.JButton();
         btnRefresh = new javax.swing.JButton();
+        btnImport = new javax.swing.JButton();
+        btnExport = new javax.swing.JButton();
         spBookTable = new javax.swing.JScrollPane();
         tblInventory = new javax.swing.JTable();
 
@@ -290,6 +308,11 @@ public class InventoryManagementPanel extends javax.swing.JPanel {
         txtSearch.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 txtSearchActionPerformed(evt);
+            }
+        });
+        txtSearch.addKeyListener(new java.awt.event.KeyAdapter() {
+            public void keyReleased(java.awt.event.KeyEvent evt) {
+                txtSearchKeyReleased(evt);
             }
         });
         pnToolbar.add(txtSearch);
@@ -337,6 +360,22 @@ public class InventoryManagementPanel extends javax.swing.JPanel {
         });
         pnToolbar.add(btnRefresh);
 
+        btnImport.setText("IMPORT");
+        btnImport.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                btnImportActionPerformed(evt);
+            }
+        });
+        pnToolbar.add(btnImport);
+
+        btnExport.setText("EXPORT");
+        btnExport.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                btnExportActionPerformed(evt);
+            }
+        });
+        pnToolbar.add(btnExport);
+
         add(pnToolbar, java.awt.BorderLayout.PAGE_START);
 
         spBookTable.addMouseListener(new java.awt.event.MouseAdapter() {
@@ -371,11 +410,10 @@ public class InventoryManagementPanel extends javax.swing.JPanel {
     }//GEN-LAST:event_txtSearchActionPerformed
 
     private void tblInventoryMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_tblInventoryMouseClicked
-        if(tblInventory.getSelectedRow() != -1){
+        if (tblInventory.getSelectedRow() != -1) {
             btnDelete.setEnabled(true);
             btnUpdate.setEnabled(true);
-        }
-        else{
+        } else {
             btnDelete.setEnabled(false);
             btnUpdate.setEnabled(false);
         }
@@ -383,16 +421,17 @@ public class InventoryManagementPanel extends javax.swing.JPanel {
 
     private void btnAddActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnAddActionPerformed
         // TODO add your handling code here:
+        handleAddNewInventory();
     }//GEN-LAST:event_btnAddActionPerformed
 
     private void spBookTableMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_spBookTableMouseClicked
         // TODO add your handling code here:
-       
+
     }//GEN-LAST:event_spBookTableMouseClicked
 
     private void btnSearchActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnSearchActionPerformed
         // TODO add your handling code here:
-        handleAddNewInventory();
+        search();
     }//GEN-LAST:event_btnSearchActionPerformed
 
     private void btnUpdateActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnUpdateActionPerformed
@@ -410,10 +449,27 @@ public class InventoryManagementPanel extends javax.swing.JPanel {
         handleRefreshTable();
     }//GEN-LAST:event_btnRefreshActionPerformed
 
+    private void btnImportActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnImportActionPerformed
+        // TODO add your handling code here:
+        handleImportInventory();
+    }//GEN-LAST:event_btnImportActionPerformed
+
+    private void btnExportActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnExportActionPerformed
+        // TODO add your handling code here:
+        handleExportInventory();
+    }//GEN-LAST:event_btnExportActionPerformed
+
+    private void txtSearchKeyReleased(java.awt.event.KeyEvent evt) {//GEN-FIRST:event_txtSearchKeyReleased
+        // TODO add your handling code here:
+        search();
+    }//GEN-LAST:event_txtSearchKeyReleased
+
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JButton btnAdd;
     private javax.swing.JButton btnDelete;
+    private javax.swing.JButton btnExport;
+    private javax.swing.JButton btnImport;
     private javax.swing.JButton btnRefresh;
     private javax.swing.JButton btnSearch;
     private javax.swing.JButton btnUpdate;
@@ -425,4 +481,3 @@ public class InventoryManagementPanel extends javax.swing.JPanel {
     private javax.swing.JTextField txtSearch;
     // End of variables declaration//GEN-END:variables
 }
-

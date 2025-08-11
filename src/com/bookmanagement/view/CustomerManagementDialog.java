@@ -8,7 +8,6 @@ package com.bookmanagement.view;
  *
  * @author ADMIN
  */
-import com.bookmanagement.Dao.BookManagementDAO;
 import com.bookmanagement.Dao.CustomerDAO;
 import com.bookmanagement.model.Book;
 import com.bookmanagement.model.Customer;
@@ -16,17 +15,17 @@ import java.math.BigDecimal;
 import javax.swing.JOptionPane;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.sql.SQLException;
+import java.util.regex.Pattern;
 
 public class CustomerManagementDialog extends javax.swing.JDialog {
 
     /**
      * Creates new form BookManagementDialog
      */
-    private static final Logger LOGGER = Logger.getLogger(CustomerManagementDialog.class.getName());
+    private Customer currentCustomer; // The Customer object being edited (null if adding a new customer)
     private CustomerDAO customerDAO;
-    private Customer currentCustomer; // Current Customer object (if in edit mode)
-    private boolean isEditMode; // true if in edit mode, false if adding new
-    private boolean isSucceeded = false; // Flag to check if the operation was successful
+    private boolean dataSaved = false; // Flag to check if the operation was successful
 
     /**
      * Creates new form CustomerDialog
@@ -35,119 +34,127 @@ public class CustomerManagementDialog extends javax.swing.JDialog {
      * @param customer Customer object to edit (null if adding new).
      * @param isEditMode true if in edit mode, false if adding new.
      */
-    public CustomerManagementDialog(java.awt.Frame parent, Customer customer, boolean isEditMode) {
-        super(parent, true); // Always modal
-        initComponents();
+    public CustomerManagementDialog(java.awt.Frame parent, boolean modal, Customer customer) {
+        super(parent, modal);
         this.customerDAO = new CustomerDAO();
         this.currentCustomer = customer;
-        this.isEditMode = isEditMode;
-        initDialogState(); // Set initial state of the dialog
+        initComponents();
+        setLocationRelativeTo(parent);
 
-        this.setLocationRelativeTo(parent); // Center the dialog
+        // Set the title and fill data if in update mode
+        if (currentCustomer == null) {
+            this.setTitle("Add New Customer");
+            txtId.setText("ID is auto-generated");
+            txtId.setEnabled(false);
+        } else {
+            this.setTitle("Update Customer");
+            fillDataFromCustomer();
+            txtId.setEnabled(false);
+        }
     }
 
     /**
      * Returns true if the operation in the dialog (add/edit) was successful.
+     *
      * @return true if successful, false if cancelled or failed.
      */
-    public boolean isSucceeded() {
-        return isSucceeded;
+    public boolean isDataSaved() {
+        return dataSaved;
     }
 
     /**
      * Sets the initial state of the dialog based on the mode (add new/edit).
      */
-    private void initDialogState() {
-        if (isEditMode && currentCustomer != null) {
-            setSize(800, 250);
-            setTitle("SỬA THÔNG TIN KHÁCH HÀNG");
-            txtId.setText(currentCustomer.getId());
-            txtId.setEditable(false); // Do not allow editing ID
-            txtName.setText(currentCustomer.getName());
+    private void fillDataFromCustomer() {
+        if (currentCustomer != null) {
+            txtFullName.setText(currentCustomer.getFullName());
+            txtEmail.setText(currentCustomer.getEmail());
+            txtPhoneNumber.setText(currentCustomer.getPhone());
             txtAddress.setText(currentCustomer.getAddress());
-            txtPhoneNumber.setText(currentCustomer.getPhoneNumber());
-        } else {
-            setSize(800, 250);
-            setTitle("THÊM MỚI THÔNG TIN KHÁCH HÀNG");
-            txtId.setText("(AUTO GEN / Không sửa)");
-            txtId.setEditable(false); // Always not editable for new ID
-            txtName.setText("");
-            txtAddress.setText("");
-            txtPhoneNumber.setText("");
         }
     }
 
     /**
      * Collects data from UI fields to create or update a Customer object.
+     *
      * @return Customer object with data from UI, or null if invalid.
      */
-    private Customer collectFormData() {
-        String customerId = isEditMode ? currentCustomer.getId() : null; // ID will be auto-generated if adding new
+    private Customer getCustomerDataFromForm() {
+        // Tự động xác thực dữ liệu đầu vào
+        if (!validateInput()) {
+            return null;
+        }
+
+        String fullName = txtFullName.getText();
+        String email = txtEmail.getText();
+        String phone = txtPhoneNumber.getText();
+        String address = txtAddress.getText();
         
-        String name = txtName.getText().trim();
-        if (name.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Vui lòng nhập tên khách hàng.", "Lỗi", JOptionPane.ERROR_MESSAGE);
-            return null;
-        }
-
-        String address = txtAddress.getText().trim();
-        if (address.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Vui lòng nhập địa chỉ.", "Lỗi", JOptionPane.ERROR_MESSAGE);
-            return null;
-        }
-
-        String phoneNumber = txtPhoneNumber.getText().trim();
-        if (phoneNumber.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Vui lòng nhập số điện thoại.", "Lỗi", JOptionPane.ERROR_MESSAGE);
-            return null;
-        }
-        // Basic phone number validation (can be enhanced)
-        if (!phoneNumber.matches("^0[0-9]{9}$")) { // Starts with 0, followed by 9 digits
-            JOptionPane.showMessageDialog(this, "Số điện thoại không hợp lệ. Vui lòng nhập 10 chữ số và bắt đầu bằng 0.", "Lỗi", JOptionPane.ERROR_MESSAGE);
-            return null;
-        }
-
-        return new Customer(customerId, name, address, phoneNumber);
+        Customer customer = (currentCustomer == null) ? new Customer() : currentCustomer;
+        customer.setFullName(fullName);
+        customer.setEmail(email);
+        customer.setPhone(phone);
+        customer.setAddress(address);
+        
+        return customer;
     }
 
     /**
-     * Handles the logic for saving (adding new or updating) the customer record.
+     * Handles the logic for saving (adding new or updating) the customer
+     * record.
      */
-    private void handleSaveLogic() {
-        Customer customer = collectFormData();
-        if (customer == null) {
-            return; // Invalid data
+    
+    private boolean validateInput() {
+        if (txtFullName.getText().trim().isEmpty() || txtEmail.getText().trim().isEmpty() || 
+            txtPhoneNumber.getText().trim().isEmpty() || txtAddress.getText().trim().isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Vui lòng điền đầy đủ tất cả các trường.", "Lỗi", JOptionPane.ERROR_MESSAGE);
+            return false;
         }
-
-        try {
-            boolean success;
-            if (isEditMode) {
-                success = customerDAO.updateCustomer(customer);
-            } else {
-                success = customerDAO.addCustomer(customer);
-            }
-
-            if (success) {
-                isSucceeded = true; // Set success flag
-                JOptionPane.showMessageDialog(this, "Lưu thông tin khách hàng thành công!", "Thành công", JOptionPane.INFORMATION_MESSAGE);
-                dispose(); // Close dialog
-            } else {
-                JOptionPane.showMessageDialog(this, "Không thể lưu thông tin khách hàng.", "Lỗi", JOptionPane.ERROR_MESSAGE);
-            }
-        } catch (Exception ex) { // Catch generic Exception to log all possible issues
-            LOGGER.log(Level.SEVERE, "Lỗi khi lưu khách hàng: ", ex);
-            JOptionPane.showMessageDialog(this, "Lỗi khi lưu khách hàng: " + ex.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
+        
+        // Xác thực định dạng email
+        String emailRegex = "^[a-zA-Z0-9_+&*-]+(?:\\.[a-zA-Z0-9_+&*-]+)*@(?:[a-zA-Z0-9-]+\\.)+[a-zA-Z]{2,7}$";
+        Pattern emailPattern = Pattern.compile(emailRegex);
+        if (!emailPattern.matcher(txtEmail.getText().trim()).matches()) {
+            JOptionPane.showMessageDialog(this, "Invalid email format.", "ERROR", JOptionPane.ERROR_MESSAGE);
+            return false;
         }
-    }
-
-    /**
-     * Handles the logic for cancelling the operation and closing the dialog.
-     */
-    private void handleCancelLogic() {
-        isSucceeded = false; // Set failure flag
-        dispose(); // Close dialog
+        
+        // Xác thực định dạng số điện thoại (chỉ chứa số)
+        if (!txtPhoneNumber.getText().trim().matches("\\d+")) {
+            JOptionPane.showMessageDialog(this, "The phone number is only contained.", "ERROR", JOptionPane.ERROR_MESSAGE);
+            return false;
+        }
+        
+        return true;
     }
     
+    private void saveCustomer() {
+        Customer customer = getCustomerDataFromForm();
+        if (customer == null) {
+            return;
+        }
+        
+        boolean success;
+        if (currentCustomer == null) {
+            // Add new customer
+            success = customerDAO.addCustomer(customer);
+            if (success) {
+                JOptionPane.showMessageDialog(this, "Customer added successfully.", "Notification", JOptionPane.INFORMATION_MESSAGE);
+            }
+        } else {
+            // Update customer
+            success = customerDAO.updateCustomer(customer);
+            if (success) {
+                JOptionPane.showMessageDialog(this, "Customer updated successfully.", "Notification", JOptionPane.INFORMATION_MESSAGE);
+            }
+        }
+        if (success) {
+            dataSaved = true;
+            this.dispose(); // Close dialog after successful save
+        } else {
+            JOptionPane.showMessageDialog(this, "Failed to save customer.", "Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
 
     @SuppressWarnings("unchecked")
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
@@ -155,14 +162,16 @@ public class CustomerManagementDialog extends javax.swing.JDialog {
         java.awt.GridBagConstraints gridBagConstraints;
 
         formPanel = new javax.swing.JPanel();
-        lblBookName = new javax.swing.JLabel();
-        lblBookID = new javax.swing.JLabel();
-        lblAuthor = new javax.swing.JLabel();
-        lblKind = new javax.swing.JLabel();
+        lblFullName = new javax.swing.JLabel();
+        lblCustomerId = new javax.swing.JLabel();
+        lblEmail = new javax.swing.JLabel();
+        lblPhoneNumber = new javax.swing.JLabel();
         txtId = new javax.swing.JTextField();
-        txtName = new javax.swing.JTextField();
-        txtAddress = new javax.swing.JTextField();
+        txtFullName = new javax.swing.JTextField();
+        txtEmail = new javax.swing.JTextField();
         txtPhoneNumber = new javax.swing.JTextField();
+        jLabel1 = new javax.swing.JLabel();
+        txtAddress = new javax.swing.JTextField();
         pnButton = new javax.swing.JPanel();
         btnSave = new javax.swing.JButton();
         btnCancel = new javax.swing.JButton();
@@ -174,37 +183,37 @@ public class CustomerManagementDialog extends javax.swing.JDialog {
         formPanel.setBorder(javax.swing.BorderFactory.createEmptyBorder(1, 1, 1, 1));
         formPanel.setLayout(new java.awt.GridBagLayout());
 
-        lblBookName.setText("NAME: ");
+        lblFullName.setText("FULL NAME: ");
         gridBagConstraints = new java.awt.GridBagConstraints();
         gridBagConstraints.gridx = 0;
         gridBagConstraints.gridy = 1;
         gridBagConstraints.anchor = java.awt.GridBagConstraints.WEST;
         gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
-        formPanel.add(lblBookName, gridBagConstraints);
+        formPanel.add(lblFullName, gridBagConstraints);
 
-        lblBookID.setText("ID CUSTOMER : ");
+        lblCustomerId.setText("ID CUSTOMER : ");
         gridBagConstraints = new java.awt.GridBagConstraints();
         gridBagConstraints.gridx = 0;
         gridBagConstraints.gridy = 0;
         gridBagConstraints.anchor = java.awt.GridBagConstraints.WEST;
         gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
-        formPanel.add(lblBookID, gridBagConstraints);
+        formPanel.add(lblCustomerId, gridBagConstraints);
 
-        lblAuthor.setText("ADDRESS: ");
+        lblEmail.setText("EMAIL: ");
         gridBagConstraints = new java.awt.GridBagConstraints();
         gridBagConstraints.gridx = 0;
         gridBagConstraints.gridy = 2;
         gridBagConstraints.anchor = java.awt.GridBagConstraints.WEST;
         gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
-        formPanel.add(lblAuthor, gridBagConstraints);
+        formPanel.add(lblEmail, gridBagConstraints);
 
-        lblKind.setText("PHONE NUMBER: ");
+        lblPhoneNumber.setText("PHONE NUMBER: ");
         gridBagConstraints = new java.awt.GridBagConstraints();
         gridBagConstraints.gridx = 0;
         gridBagConstraints.gridy = 3;
         gridBagConstraints.anchor = java.awt.GridBagConstraints.WEST;
         gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
-        formPanel.add(lblKind, gridBagConstraints);
+        formPanel.add(lblPhoneNumber, gridBagConstraints);
 
         txtId.setEditable(false);
         gridBagConstraints = new java.awt.GridBagConstraints();
@@ -216,9 +225,9 @@ public class CustomerManagementDialog extends javax.swing.JDialog {
         gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
         formPanel.add(txtId, gridBagConstraints);
 
-        txtName.addActionListener(new java.awt.event.ActionListener() {
+        txtFullName.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
-                txtNameActionPerformed(evt);
+                txtFullNameActionPerformed(evt);
             }
         });
         gridBagConstraints = new java.awt.GridBagConstraints();
@@ -228,7 +237,7 @@ public class CustomerManagementDialog extends javax.swing.JDialog {
         gridBagConstraints.anchor = java.awt.GridBagConstraints.WEST;
         gridBagConstraints.weightx = 1.0;
         gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
-        formPanel.add(txtName, gridBagConstraints);
+        formPanel.add(txtFullName, gridBagConstraints);
         gridBagConstraints = new java.awt.GridBagConstraints();
         gridBagConstraints.gridx = 1;
         gridBagConstraints.gridy = 2;
@@ -236,7 +245,7 @@ public class CustomerManagementDialog extends javax.swing.JDialog {
         gridBagConstraints.anchor = java.awt.GridBagConstraints.WEST;
         gridBagConstraints.weightx = 1.0;
         gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
-        formPanel.add(txtAddress, gridBagConstraints);
+        formPanel.add(txtEmail, gridBagConstraints);
         gridBagConstraints = new java.awt.GridBagConstraints();
         gridBagConstraints.gridx = 1;
         gridBagConstraints.gridy = 3;
@@ -246,6 +255,23 @@ public class CustomerManagementDialog extends javax.swing.JDialog {
         gridBagConstraints.weighty = 1.0;
         gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
         formPanel.add(txtPhoneNumber, gridBagConstraints);
+
+        jLabel1.setText("ADDRESS: ");
+        gridBagConstraints = new java.awt.GridBagConstraints();
+        gridBagConstraints.gridx = 0;
+        gridBagConstraints.gridy = 4;
+        gridBagConstraints.anchor = java.awt.GridBagConstraints.WEST;
+        gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
+        formPanel.add(jLabel1, gridBagConstraints);
+        gridBagConstraints = new java.awt.GridBagConstraints();
+        gridBagConstraints.gridx = 1;
+        gridBagConstraints.gridy = 4;
+        gridBagConstraints.fill = java.awt.GridBagConstraints.HORIZONTAL;
+        gridBagConstraints.anchor = java.awt.GridBagConstraints.WEST;
+        gridBagConstraints.weightx = 1.0;
+        gridBagConstraints.weighty = 1.0;
+        gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
+        formPanel.add(txtAddress, gridBagConstraints);
 
         getContentPane().add(formPanel, java.awt.BorderLayout.CENTER);
 
@@ -272,9 +298,9 @@ public class CustomerManagementDialog extends javax.swing.JDialog {
         pack();
     }// </editor-fold>//GEN-END:initComponents
 
-    private void txtNameActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_txtNameActionPerformed
+    private void txtFullNameActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_txtFullNameActionPerformed
         // TODO add your handling code here:
-    }//GEN-LAST:event_txtNameActionPerformed
+    }//GEN-LAST:event_txtFullNameActionPerformed
 
     private void txtSearchActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_txtSearchActionPerformed
         // TODO add your handling code here:
@@ -290,12 +316,12 @@ public class CustomerManagementDialog extends javax.swing.JDialog {
 
     private void btnSaveActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnSaveActionPerformed
         // TODO add your handling code here:
-        handleSaveLogic();
+        saveCustomer();
     }//GEN-LAST:event_btnSaveActionPerformed
 
     private void btnCancelActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnCancelActionPerformed
         // TODO add your handling code here:
-        handleCancelLogic();
+        this.dispose();
     }//GEN-LAST:event_btnCancelActionPerformed
 
     /**
@@ -329,7 +355,7 @@ public class CustomerManagementDialog extends javax.swing.JDialog {
         /* Create and display the dialog */
         java.awt.EventQueue.invokeLater(new Runnable() {
             public void run() {
-                CustomerManagementDialog dialog = new CustomerManagementDialog(new javax.swing.JFrame(), null, false);
+                CustomerManagementDialog dialog = new CustomerManagementDialog(new javax.swing.JFrame(), true, null);
                 dialog.addWindowListener(new java.awt.event.WindowAdapter() {
                     @Override
                     public void windowClosing(java.awt.event.WindowEvent e) {
@@ -345,14 +371,16 @@ public class CustomerManagementDialog extends javax.swing.JDialog {
     private javax.swing.JButton btnCancel;
     private javax.swing.JButton btnSave;
     private javax.swing.JPanel formPanel;
-    private javax.swing.JLabel lblAuthor;
-    private javax.swing.JLabel lblBookID;
-    private javax.swing.JLabel lblBookName;
-    private javax.swing.JLabel lblKind;
+    private javax.swing.JLabel jLabel1;
+    private javax.swing.JLabel lblCustomerId;
+    private javax.swing.JLabel lblEmail;
+    private javax.swing.JLabel lblFullName;
+    private javax.swing.JLabel lblPhoneNumber;
     private javax.swing.JPanel pnButton;
     private javax.swing.JTextField txtAddress;
+    private javax.swing.JTextField txtEmail;
+    private javax.swing.JTextField txtFullName;
     private javax.swing.JTextField txtId;
-    private javax.swing.JTextField txtName;
     private javax.swing.JTextField txtPhoneNumber;
     // End of variables declaration//GEN-END:variables
 }

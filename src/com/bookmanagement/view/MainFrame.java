@@ -59,16 +59,22 @@ public class MainFrame extends javax.swing.JFrame {
         add(mainPanel);
 
         // Show the initial login screen
-        showPanel("Login");
+        showLoginPanel();
     }
 
     /**
      * Method to switch between different panels.
      * @param panelName The name of the panel to display ("Login" or "Home")
      */
-    public void showPanel(String panelName) {
-        cardLayout.show(mainPanel, panelName);
-        LOGGER.info("Switching to panel: " + panelName);
+    public void showLoginPanel() {
+        cardLayout.show(mainPanel, "LoginPanel");
+    }
+    
+    /**
+     * Hiển thị màn hình chính.
+     */
+    public void showHomePanel() {
+        cardLayout.show(mainPanel, "HomePanel");
     }
     
     /**

@@ -7,9 +7,8 @@ import java.util.Set;
 import java.util.logging.Logger;
 
 public class UserSession {
-    
-    
-     private static final Logger LOGGER = Logger.getLogger(UserSession.class.getName());
+
+    private static final Logger LOGGER = Logger.getLogger(UserSession.class.getName());
     private static UserSession instance;
     private User currentUser;
     private Set<String> permissions;
@@ -46,11 +45,11 @@ public class UserSession {
     public static boolean isLoggedIn() {
         return instance != null && instance.currentUser != null;
     }
-    
+
     public static boolean hasPermission(String permission) {
         return isLoggedIn() && instance.permissions.contains(permission);
     }
-    
+
     // Getter
     public static Set<String> getPermissions() {
         return (isLoggedIn() && instance.permissions != null) ? instance.permissions : new HashSet<>();

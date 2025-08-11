@@ -24,7 +24,7 @@ import java.text.NumberFormat;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
-import com.bookmanagement.Dao.OrderDetailDAO;
+import com.bookmanagement.Dao.OrderItemDAO;
 import java.awt.print.Printable;
 import java.awt.print.PrinterException;
 import java.awt.print.PrinterJob;
@@ -42,7 +42,7 @@ public class InvoicePrinter implements Printable {
 
     public InvoicePrinter(String orderId) throws SQLException {
         InvoiceDAO invoiceDAO = new InvoiceDAO();
-        OrderDetailDAO orderDetailDAO = new OrderDetailDAO();
+        OrderItemDAO orderDetailDAO = new OrderItemDAO();
         this.bookDAO = new BookManagementDAO(); // Khởi tạo BookManagementDAO
 
         // Lấy thông tin hóa đơn dựa trên orderId

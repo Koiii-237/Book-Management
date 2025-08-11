@@ -26,179 +26,182 @@ public class OrderDAO {
     private static final Logger LOGGER = Logger.getLogger(OrderDAO.class.getName());
 
     /**
-     * Chèn một đơn hàng mới vào cơ sở dữ liệu.
+     * Thêm một đơn hàng mới vào cơ sở dữ liệu.
+     * Lưu ý: order_date sẽ được tự động tạo bởi database (GETDATE()).
      *
-     * @param order Đối tượng Order cần chèn.
-     * @return true nếu chèn thành công, false nếu ngược lại.
+     * @param order Đối tượng Order cần thêm.
+     * @return true nếu thêm thành công, false nếu có lỗi xảy ra.
      */
-    public boolean insertOrder(Order order) {
-        // Cập nhật SQL để bao gồm cột 'PhuongThucThanhToan'
-        String sql = "INSERT INTO DonHang (MaDonHang, NgayDatHang, TongTien, MaKH, TrangThai, PhuongThucThanhToan) VALUES (?,?,?,?,?,?)";
-        try (Connection con = DBConnection.getConnection(); PreparedStatement ps = con.prepareStatement(sql)) {
-            ps.setString(1, order.getOrderID());
-            ps.setDate(2, Date.valueOf(order.getOrderDate()));
-            ps.setBigDecimal(3, order.getTotalAmount());
-            ps.setString(4, order.getCustomerID());
-            ps.setString(5, order.getStatus());
-            ps.setString(6, order.getPaymentMethod()); // Thêm phương thức thanh toán
-            int rowsAffected = ps.executeUpdate();
+    public boolean addOrder(Order order) {
+        String sql = "INSERT INTO dbo.orders (customer_id, status, total_amount, total_discount, promotion_id) VALUES (?, ?, ?, ?, ?)";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            // Xử lý các trường có thể NULL
+            if (order.getCustomerId() != null) {
+                stmt.setInt(1, order.getCustomerId());
+            } else {
+                stmt.setNull(1, java.sql.Types.INTEGER);
+            }
+            stmt.setString(2, order.getStatus());
+            stmt.setBigDecimal(3, order.getTotalAmount());
+            stmt.setBigDecimal(4, order.getTotalDiscount());
+            if (order.getPromotionId() != null) {
+                stmt.setInt(5, order.getPromotionId());
+            } else {
+                stmt.setNull(5, java.sql.Types.INTEGER);
+            }
+
+            int rowsAffected = stmt.executeUpdate();
             return rowsAffected > 0;
         } catch (SQLException e) {
-            LOGGER.log(Level.SEVERE, "Lỗi khi chèn đơn hàng: " + e.getMessage(), e);
+            LOGGER.log(Level.SEVERE, "Lỗi khi thêm đơn hàng mới.", e);
             return false;
         }
     }
 
     /**
-     * Lấy danh sách tất cả các đơn hàng từ cơ sở dữ liệu.
+     * Cập nhật thông tin của một đơn hàng đã tồn tại.
      *
-     * @return Danh sách các đơn hàng.
+     * @param order Đối tượng Order chứa thông tin cập nhật.
+     * @return true nếu cập nhật thành công, false nếu có lỗi hoặc không tìm thấy đơn hàng.
      */
-    public List<Order> getAllOrders() {
-        List<Order> list = new ArrayList<>();
-        String sql = "SELECT MaDonHang, NgayDatHang, TongTien, MaKH, TrangThai, PhuongThucThanhToan FROM DonHang";
-        try (Connection con = DBConnection.getConnection(); PreparedStatement ps = con.prepareStatement(sql); ResultSet rs = ps.executeQuery()) {
-            while (rs.next()) {
-                list.add(new Order(
-                        rs.getString("MaDonHang"),
-                        rs.getDate("NgayDatHang").toLocalDate(),
-                        rs.getBigDecimal("TongTien"),
-                        rs.getString("MaKH"),
-                        rs.getString("TrangThai"),
-                        rs.getString("PhuongThucThanhToan") // Lấy phương thức thanh toán
-                ));
+    public boolean updateOrder(Order order) {
+        String sql = "UPDATE dbo.orders SET customer_id = ?, status = ?, total_amount = ?, total_discount = ?, promotion_id = ? WHERE order_id = ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            // Xử lý các trường có thể NULL
+            if (order.getCustomerId() != null) {
+                stmt.setInt(1, order.getCustomerId());
+            } else {
+                stmt.setNull(1, java.sql.Types.INTEGER);
             }
+            stmt.setString(2, order.getStatus());
+            stmt.setBigDecimal(3, order.getTotalAmount());
+            stmt.setBigDecimal(4, order.getTotalDiscount());
+            if (order.getPromotionId() != null) {
+                stmt.setInt(5, order.getPromotionId());
+            } else {
+                stmt.setNull(5, java.sql.Types.INTEGER);
+            }
+            stmt.setInt(6, order.getOrderId());
+
+            int rowsAffected = stmt.executeUpdate();
+            return rowsAffected > 0;
         } catch (SQLException e) {
-            LOGGER.log(Level.SEVERE, "Lỗi khi lấy danh sách đơn hàng: " + e.getMessage(), e);
+            LOGGER.log(Level.SEVERE, "Lỗi khi cập nhật đơn hàng có ID: " + order.getOrderId(), e);
+            return false;
         }
-        return list;
     }
 
     /**
-     * Tìm kiếm đơn hàng theo tiêu chí.
+     * Xóa một đơn hàng khỏi cơ sở dữ liệu dựa trên ID.
      *
-     * @param search Chuỗi tìm kiếm.
-     * @return Danh sách đơn hàng phù hợp.
+     * @param orderId ID của đơn hàng cần xóa.
+     * @return true nếu xóa thành công, false nếu có lỗi hoặc không tìm thấy đơn hàng.
      */
-    public List<Order> searchOrder(String search) {
-        List<Order> list = new ArrayList<>();
-        // Cập nhật câu truy vấn để tìm kiếm trên PhuongThucThanhToan
-        String sql = "SELECT * FROM DonHang WHERE MaDonHang LIKE ? OR MaKH LIKE ? OR TrangThai LIKE ? OR PhuongThucThanhToan LIKE ?";
-        try (Connection conn = DBConnection.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
-            String searchTerm = "%" + search + "%";
-            ps.setString(1, searchTerm);
-            ps.setString(2, searchTerm);
-            ps.setString(3, searchTerm);
-            ps.setString(4, searchTerm); // Thêm tìm kiếm theo PhuongThucThanhToan
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    list.add(new Order(
-                            rs.getString("MaDonHang"),
-                            rs.getDate("NgayDatHang").toLocalDate(),
-                            rs.getBigDecimal("TongTien"),
-                            rs.getString("MaKH"),
-                            rs.getString("TrangThai"),
-                            rs.getString("PhuongThucThanhToan") // Lấy phương thức thanh toán
-                    ));
+    public boolean deleteOrder(int orderId) {
+        String sql = "DELETE FROM dbo.orders WHERE order_id = ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setInt(1, orderId);
+
+            int rowsAffected = stmt.executeUpdate();
+            return rowsAffected > 0;
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Lỗi khi xóa đơn hàng có ID: " + orderId, e);
+            return false;
+        }
+    }
+
+    /**
+     * Lấy một đơn hàng dựa trên ID.
+     *
+     * @param orderId ID của đơn hàng cần tìm.
+     * @return Đối tượng Order nếu tìm thấy, ngược lại trả về null.
+     */
+    public Order getOrderById(int orderId) {
+        String sql = "SELECT * FROM dbo.orders WHERE order_id = ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setInt(1, orderId);
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return mapOrderFromResultSet(rs);
                 }
             }
         } catch (SQLException e) {
-            LOGGER.log(Level.SEVERE, "Lỗi khi tìm kiếm đơn hàng: " + search, e);
+            LOGGER.log(Level.SEVERE, "Lỗi khi lấy đơn hàng theo ID: " + orderId, e);
         }
-        return list;
-    }
-
-    /**
-     * Cập nhật trạng thái của một đơn hàng.
-     *
-     * @param orderId ID của đơn hàng cần cập nhật.
-     * @param newStatus Trạng thái mới của đơn hàng.
-     * @return true nếu cập nhật thành công, false nếu ngược lại.
-     * @throws SQLException Nếu có lỗi xảy ra trong quá trình truy vấn cơ sở dữ liệu.
-     */
-    public boolean updateOrderStatus(String orderId, String newStatus) throws SQLException {
-        String sql = "UPDATE DonHang SET TrangThai = ? WHERE MaDonHang = ?";
-        try (Connection conn = DBConnection.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, newStatus);
-            ps.setString(2, orderId);
-            int rowsAffected = ps.executeUpdate();
-            return rowsAffected > 0;
-        } catch (SQLException ex) {
-            LOGGER.log(Level.SEVERE, "Lỗi khi cập nhật trạng thái đơn hàng: " + orderId, ex);
-            throw ex;
-        }
+        return null; // Trả về null nếu không tìm thấy hoặc có lỗi
     }
     
     /**
-     * Lấy một đơn hàng từ cơ sở dữ liệu dựa trên ID đơn hàng.
+     * Lấy tất cả các đơn hàng có trong cơ sở dữ liệu.
      *
-     * @param orderId ID của đơn hàng cần lấy.
-     * @return Đối tượng Order nếu tìm thấy, null nếu không tìm thấy.
-     * @throws SQLException Nếu có lỗi xảy ra trong quá trình truy vấn cơ sở dữ liệu.
+     * @return Một danh sách các đối tượng Order.
      */
-    public Order getOrderByOrderId(String orderId) throws SQLException {
-        Order order = null;
-        // Cập nhật SQL để chọn đơn hàng theo MaDonHang, bao gồm cả cột PhuongThucThanhToan.
-        String sql = "SELECT MaDonHang, NgayDatHang, TongTien, MaKH, TrangThai, PhuongThucThanhToan FROM DonHang WHERE MaDonHang = ?";
-        try (Connection conn = DBConnection.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, orderId); // Đặt tham số MaDonHang
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    // Tạo đối tượng Order từ kết quả truy vấn
-                    order = new Order(
-                        rs.getString("MaDonHang"),
-                        rs.getDate("NgayDatHang").toLocalDate(),
-                        rs.getBigDecimal("TongTien"),
-                        rs.getString("MaKH"),
-                        rs.getString("TrangThai"),
-                        rs.getString("PhuongThucThanhToan") // Lấy phương thức thanh toán
-                    );
-                }
+    public List<Order> getAllOrders() {
+        List<Order> orders = new ArrayList<>();
+        String sql = "SELECT * FROM dbo.orders";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql);
+             ResultSet rs = stmt.executeQuery()) {
+
+            while (rs.next()) {
+                orders.add(mapOrderFromResultSet(rs));
             }
-        } catch (SQLException ex) {
-            LOGGER.log(Level.SEVERE, "Lỗi khi lấy đơn hàng theo ID: " + orderId, ex);
-            throw ex; // Ném ngoại lệ để phương thức gọi xử lý
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Lỗi khi lấy tất cả đơn hàng.", e);
         }
-        return order;
+        return orders;
     }
 
     /**
-     * Lấy các gợi ý tìm kiếm dựa trên từ khóa.
-     * Tìm kiếm trong MaDonHang, MaKH, TrangThai, PhuongThucThanhToan.
-     * @param keyword Từ khóa tìm kiếm.
-     * @return Danh sách các chuỗi gợi ý duy nhất.
+     * Lấy danh sách các đơn hàng của một khách hàng cụ thể.
+     *
+     * @param customerId ID của khách hàng.
+     * @return Một danh sách các đơn hàng của khách hàng đó.
      */
-    public List<String> getSuggestions(String keyword) {
-        Set<String> suggestions = new HashSet<>();
-        String sql = "SELECT MaDonHang, MaKH, TrangThai, PhuongThucThanhToan FROM DonHang " +
-                     "WHERE MaDonHang LIKE ? OR MaKH LIKE ? OR TrangThai LIKE ? OR PhuongThucThanhToan LIKE ?";
-        
+    public List<Order> getOrdersByCustomerId(int customerId) {
+        List<Order> orders = new ArrayList<>();
+        String sql = "SELECT * FROM dbo.orders WHERE customer_id = ?";
         try (Connection conn = DBConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-            String searchTerm = "%" + keyword + "%";
-            ps.setString(1, searchTerm);
-            ps.setString(2, searchTerm);
-            ps.setString(3, searchTerm);
-            ps.setString(4, searchTerm);
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
 
-            try (ResultSet rs = ps.executeQuery()) {
+            stmt.setInt(1, customerId);
+
+            try (ResultSet rs = stmt.executeQuery()) {
                 while (rs.next()) {
-                    suggestions.add(rs.getString("MaDonHang"));
-                    suggestions.add(rs.getString("MaKH"));
-                    suggestions.add(rs.getString("TrangThai"));
-                    suggestions.add(rs.getString("PhuongThucThanhToan"));
+                    orders.add(mapOrderFromResultSet(rs));
                 }
             }
         } catch (SQLException e) {
-            LOGGER.log(Level.SEVERE, "Lỗi khi lấy gợi ý tìm kiếm: " + keyword, e);
+            LOGGER.log(Level.SEVERE, "Lỗi khi lấy đơn hàng theo ID khách hàng: " + customerId, e);
         }
-        // Lọc bỏ các giá trị null hoặc rỗng và trả về danh sách
-        List<String> filteredSuggestions = new ArrayList<>();
-        for (String s : suggestions) {
-            if (s != null && !s.trim().isEmpty()) {
-                filteredSuggestions.add(s);
-            }
-        }
-        return filteredSuggestions;
+        return orders;
+    }
+
+    /**
+     * Phương thức trợ giúp để ánh xạ một ResultSet thành một đối tượng Order.
+     *
+     * @param rs ResultSet chứa dữ liệu của một hàng trong bảng đơn hàng.
+     * @return Một đối tượng Order đã được điền dữ liệu.
+     * @throws SQLException nếu có lỗi xảy ra khi truy cập ResultSet.
+     */
+    private Order mapOrderFromResultSet(ResultSet rs) throws SQLException {
+        Order order = new Order();
+        order.setOrderId(rs.getInt("order_id"));
+        order.setCustomerId(rs.getObject("customer_id", Integer.class));
+        order.setOrderDate(rs.getTimestamp("order_date").toLocalDateTime());
+        order.setStatus(rs.getString("status"));
+        order.setTotalAmount(rs.getBigDecimal("total_amount"));
+        order.setTotalDiscount(rs.getBigDecimal("total_discount"));
+        order.setPromotionId(rs.getObject("promotion_id", Integer.class));
+        return order;
     }
 }

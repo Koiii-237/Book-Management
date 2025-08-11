@@ -8,20 +8,19 @@ package com.bookmanagement.view;
  *
  * @author ADMIN
  */
-import com.bookmanagement.Dao.BookManagementDAO;
-import com.bookmanagement.Dao.WarehousesDAO;
-import com.bookmanagement.model.Book;
-import com.bookmanagement.model.Warehouses;
-import java.awt.Frame;
-import java.awt.Window;
+import com.bookmanagement.Dao.InventoryDAO;
+import com.bookmanagement.Dao.WarehouseDAO;
+import com.bookmanagement.dao.BookDAO;
+import com.bookmanagement.model.Inventory;
 import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javax.swing.DefaultComboBoxModel;
 import javax.swing.JOptionPane;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
+import com.bookmanagement.Dao.StockTransactionDAO;
+import com.bookmanagement.model.StockTransaction;
+import java.time.LocalDateTime;
 
 public class InventoryManagementDialog extends javax.swing.JDialog {
 
@@ -29,155 +28,207 @@ public class InventoryManagementDialog extends javax.swing.JDialog {
      * Creates new form BookManagementDialog
      */
     private static final Logger LOGGER = Logger.getLogger(InventoryManagementDialog.class.getName());
-    private WarehousesDAO inventoryDAO;
-    private BookManagementDAO bookManagementDAO;
-    private Warehouses currentInventory; // Đối tượng Inventory hiện tại (nếu đang sửa)
-    private boolean isEditMode; // true nếu đang ở chế độ sửa, false nếu thêm mới
-    private boolean isSucceeded = false; // Biến để kiểm tra thao tác có thành công không
+    private Inventory currentInventory;
+    private InventoryDAO inventoryDAO;
+    private BookDAO bookDAO;
+    private WarehouseDAO warehousesDAO;
+    private StockTransactionDAO stockTransactionDAO; // Khai báo StockTransactionDAO
+    private boolean dataSaved = false;
 
     /**
-     * Creates new form InventoryDialog
+     * Tạo dialog mới.
      *
      * @param parent Frame cha của dialog.
+     * @param modal Chỉ định dialog có phải là modal hay không.
      * @param inventory Đối tượng Inventory để chỉnh sửa (null nếu thêm mới).
-     * @param isEditMode true nếu là chế độ chỉnh sửa, false nếu thêm mới.
      */
-    public InventoryManagementDialog(java.awt.Frame parent, Warehouses inventory, boolean isEditMode) {
-        super(parent, true); // Luôn là modal
-        initComponents();
-        this.inventoryDAO = new WarehousesDAO();
-        this.bookManagementDAO = new BookManagementDAO();
+    public InventoryManagementDialog(java.awt.Frame parent, boolean modal, Inventory inventory) {
+        super(parent, modal);
+        this.inventoryDAO = new InventoryDAO();
         this.currentInventory = inventory;
-        this.isEditMode = isEditMode;
-        initComboBox(); // Khởi tạo ComboBox sách
-        initDialogState(); // Thiết lập trạng thái ban đầu của dialog
+        this.bookDAO = new BookDAO();
+        this.warehousesDAO = new WarehouseDAO();
+        this.stockTransactionDAO = new StockTransactionDAO();
+        initComponents();
+        setLocationRelativeTo(parent);
 
-        this.setLocationRelativeTo(parent); // Canh giữa dialog
-    }
+        if (currentInventory == null) {
+            this.setTitle("Add New Inventory");
+            txtInventoryId.setEnabled(false);
+        } else {
+            this.setTitle("Edit Inventory");
+            txtInventoryId.setEnabled(false);
+            loadInventoryData();
 
-    /**
-     * Trả về true nếu thao tác trong dialog (thêm/sửa) thành công.
-     * @return true nếu thành công, false nếu bị hủy hoặc thất bại.
-     */
-    public boolean isSucceeded() {
-        return isSucceeded;
-    }
-
-    /**
-     * Khởi tạo ComboBox chọn sách với dữ liệu từ cơ sở dữ liệu.
-     */
-    private void initComboBox() {
-        try {
-            List<Book> books = bookManagementDAO.getAllBooks();
-            DefaultComboBoxModel<String> model = new DefaultComboBoxModel<>();
-            for (Book book : books) {
-                model.addElement(book.getBookID() + " - " + book.getBookName());
-            }
-            cbBook.setModel(model);
-        } catch (SQLException ex) {
-            LOGGER.log(Level.SEVERE, "Lỗi khi tải danh sách sách vào ComboBox", ex);
-            JOptionPane.showMessageDialog(this, "Lỗi khi tải danh sách sách: " + ex.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
         }
+        addTextFieldListeners();
     }
 
-    /**
-     * Thiết lập trạng thái ban đầu của dialog dựa trên chế độ (thêm mới/chỉnh sửa).
-     */
-    private void initDialogState() {
-        if (isEditMode && currentInventory != null) {
-            setTitle("SỬA THÔNG TIN TỒN KHO");
-            txtInventoryID.setText(currentInventory.getInventoryId());
-            txtInventoryID.setEditable(false); // Không cho phép sửa ID
-            txtQuantity.setText(String.valueOf(currentInventory.getQunatity()));
-            txtAddress.setText(currentInventory.getAddress());
-            // Chọn sách tương ứng trong ComboBox
-            for (int i = 0; i < cbBook.getItemCount(); i++) {
-                String item = cbBook.getItemAt(i);
-                if (item.startsWith(currentInventory.getBookId() + " -")) {
-                    cbBook.setSelectedIndex(i);
-                    break;
-                }
+    private void addTextFieldListeners() {
+        txtBookId.getDocument().addDocumentListener(new DocumentListener() {
+            public void changedUpdate(DocumentEvent e) {
+                updateBookName();
+            }
+
+            public void removeUpdate(DocumentEvent e) {
+                updateBookName();
+            }
+
+            public void insertUpdate(DocumentEvent e) {
+                updateBookName();
+            }
+        });
+
+        txtWarehouseId.getDocument().addDocumentListener(new DocumentListener() {
+            public void changedUpdate(DocumentEvent e) {
+                updateWarehouseName();
+            }
+
+            public void removeUpdate(DocumentEvent e) {
+                updateWarehouseName();
+            }
+
+            public void insertUpdate(DocumentEvent e) {
+                updateWarehouseName();
+            }
+        });
+    }
+
+    private void updateBookName() {
+        String bookIdText = txtBookId.getText();
+        if (bookIdText.matches("\\d+")) {
+            try {
+                int bookId = Integer.parseInt(bookIdText);
+                String bookName = bookDAO.getBookById(bookId).getTitle();
+                lblBookNameDisplay.setText(bookName != null ? "Book: " + bookName : "Not found book");
+            } catch (NumberFormatException ex) {
+                lblBookNameDisplay.setText("Book code is invalid");
             }
         } else {
-            setTitle("THÊM MỚI THÔNG TIN TỒN KHO");
-            txtInventoryID.setText("(AUTO GEN / Không sửa)");
-            txtInventoryID.setEditable(false); // Luôn không cho phép sửa ID
-            txtQuantity.setText("");
-            txtAddress.setText("");
-            cbBook.setSelectedIndex(-1); // Không chọn gì ban đầu
+            lblBookNameDisplay.setText("");
         }
     }
 
     /**
-     * Thu thập dữ liệu từ các trường UI để tạo hoặc cập nhật đối tượng Inventory.
-     * @return Đối tượng Inventory với dữ liệu từ UI, hoặc null nếu có lỗi.
+     * Cập nhật tên kho dựa trên Warehouse ID được nhập.
      */
-    private Warehouses collectFormData() {
-        String inventoryId = isEditMode ? currentInventory.getInventoryId() : null; // ID sẽ được tạo tự động nếu thêm mới
-        String selectedBookString = (String) cbBook.getSelectedItem();
-        if (selectedBookString == null || selectedBookString.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Vui lòng chọn một cuốn sách.", "Lỗi", JOptionPane.ERROR_MESSAGE);
+    private void updateWarehouseName() {
+        String warehouseIdText = txtWarehouseId.getText();
+        if (warehouseIdText.matches("\\d+")) {
+            try {
+                int warehouseId = Integer.parseInt(warehouseIdText);
+                String warehouseName = warehousesDAO.getWarehouseById(warehouseId).getWarehouseName();
+                lblWarehouseNameDisplay.setText(warehouseName != null ? "Kho: " + warehouseName : "Không tìm thấy kho");
+            } catch (NumberFormatException ex) {
+                lblWarehouseNameDisplay.setText("Warehouse is invalid");
+            } catch (SQLException ex) {
+                Logger.getLogger(InventoryManagementDialog.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        } else {
+            lblWarehouseNameDisplay.setText("");
+        }
+    }
+
+    private Inventory getInventoryFromForm() {
+        Inventory inventory = new Inventory();
+        if (currentInventory != null) {
+            inventory.setInventoryId(Integer.parseInt(txtInventoryId.getText()));
+        }
+        try {
+            inventory.setBookId(Integer.parseInt(txtBookId.getText()));
+            inventory.setWarehouseId(Integer.parseInt(txtWarehouseId.getText()));
+            inventory.setQuantity(Integer.parseInt(txtQuantity.getText()));
+        } catch (NumberFormatException e) {
+            JOptionPane.showMessageDialog(this, "Book code, warehouse code and quantity must be valid.", "Input Error", JOptionPane.ERROR_MESSAGE);
             return null;
         }
-        String bookId = selectedBookString.split(" - ")[0];
+        return inventory;
+    }
 
-        int quantity;
+    public boolean isDataSaved() {
+        return dataSaved;
+    }
+
+    private void loadInventoryData() {
+        if (currentInventory != null) {
+            txtInventoryId.setText(String.valueOf(currentInventory.getInventoryId()));
+            txtBookId.setText(String.valueOf(currentInventory.getBookId()));
+            txtWarehouseId.setText(String.valueOf(currentInventory.getWarehouseId()));
+            txtQuantity.setText(String.valueOf(currentInventory.getQuantity()));
+            updateBookName();
+            updateWarehouseName();
+        }
+    }
+
+    private void handleSave() {
         try {
-            quantity = Integer.parseInt(txtQuantity.getText().trim());
-            if (quantity <= 0) {
-                JOptionPane.showMessageDialog(this, "Số lượng phải lớn hơn 0.", "Lỗi", JOptionPane.ERROR_MESSAGE);
-                return null;
+            Inventory inventory = getInventoryFromForm();
+            if (inventory == null || !validateForm(inventory)) {
+                return;
+            }
+
+            boolean success = false;
+            if (currentInventory == null) {
+                // Thêm tồn kho mới
+                success = inventoryDAO.addInventory(inventory);
+                if (success) {
+                    stockTransactionDAO.addStockTransaction(new StockTransaction(
+                            0, // transactionId sẽ được tự động tạo
+                            inventory.getBookId(),
+                            null,
+                            inventory.getWarehouseId(),
+                            inventory.getQuantity(),
+                            "ADD",
+                            LocalDateTime.now()
+                    ));
+                    dataSaved = true;
+                    JOptionPane.showMessageDialog(this, "Add inventory complete!", "Complete", JOptionPane.INFORMATION_MESSAGE);
+                    this.dispose();
+                } else {
+                    JOptionPane.showMessageDialog(this, "Add new inventory fail!", "ERROR", JOptionPane.ERROR_MESSAGE);
+                }
+            } else {
+                    // Cập nhật tồn kho
+                    int oldQuantity = inventoryDAO.getQuantityForBookInWarehouse(inventory.getBookId(), inventory.getWarehouseId());
+                    currentInventory.setBookId(inventory.getBookId());
+                    currentInventory.setWarehouseId(inventory.getWarehouseId());
+                    currentInventory.setQuantity(inventory.getQuantity());
+                    success = inventoryDAO.updateInventory(inventory);
+                    if (success) {
+                        int quantityChange = inventory.getQuantity() - oldQuantity;
+                        if (quantityChange != 0) {
+                            String transactionType = (quantityChange > 0) ? "UPDATE_INCREASE" : "UPDATE_DECREASE";
+                            stockTransactionDAO.addStockTransaction(new StockTransaction(
+                                    0,
+                                    inventory.getBookId(),
+                                    null,
+                                    inventory.getWarehouseId(),
+                                    Math.abs(quantityChange),
+                                    transactionType,
+                                    LocalDateTime.now()
+                            ));
+                        }
+                        JOptionPane.showMessageDialog(this, "Update inventory complete!", "Complete", JOptionPane.INFORMATION_MESSAGE);
+                    }
             }
         } catch (NumberFormatException e) {
-            JOptionPane.showMessageDialog(this, "Số lượng không hợp lệ.", "Lỗi", JOptionPane.ERROR_MESSAGE);
-            return null;
-        }
-
-        String address = txtAddress.getText().trim();
-        if (address.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Vui lòng nhập vị trí kho.", "Lỗi", JOptionPane.ERROR_MESSAGE);
-            return null;
-        }
-
-        return new Warehouses(inventoryId, quantity, address, bookId);
-    }
-
-    /**
-     * Xử lý logic lưu (thêm mới hoặc cập nhật) bản ghi tồn kho.
-     */
-    private void handleSaveLogic() {
-        Warehouses inv = collectFormData();
-        if (inv == null) {
-            return; // Dữ liệu không hợp lệ
-        }
-
-        try {
-            boolean success;
-            if (isEditMode) {
-                success = inventoryDAO.update(inv);
-            } else {
-                success = inventoryDAO.insert(inv);
-            }
-
-            if (success) {
-                isSucceeded = true; // Đặt trạng thái thành công
-                JOptionPane.showMessageDialog(this, "Lưu thông tin tồn kho thành công!", "Thành công", JOptionPane.INFORMATION_MESSAGE);
-                dispose(); // Đóng dialog
-            } else {
-                JOptionPane.showMessageDialog(this, "Không thể lưu thông tin tồn kho.", "Lỗi", JOptionPane.ERROR_MESSAGE);
-            }
-        } catch (SQLException ex) {
-            LOGGER.log(Level.SEVERE, "Lỗi khi lưu tồn kho: ", ex);
-            JOptionPane.showMessageDialog(this, "Lỗi khi lưu tồn kho: " + ex.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Please enter the valid number for book ID, warehouse and quantity.", "Error", JOptionPane.ERROR_MESSAGE);
+        } catch(SQLException e){
+            LOGGER.log(Level.SEVERE, "Error when working with the database", e);
+            JOptionPane.showMessageDialog(this, "Database error: " + e.getMessage(), "error", JOptionPane.ERROR_MESSAGE);
         }
     }
 
-    /**
-     * Xử lý logic hủy bỏ thao tác và đóng dialog.
-     */
-    private void handleCancelLogic() {
-        isSucceeded = false; // Đặt trạng thái không thành công
-        dispose(); // Đóng dialog
+    private boolean validateForm(Inventory inventory) {
+        if (inventory.getBookId() <= 0 || inventory.getWarehouseId() <= 0 || inventory.getQuantity() <= 0) {
+            JOptionPane.showMessageDialog(this, "Book code, warehouse code and quantity must be greater than 0!", "Eroor", JOptionPane.ERROR_MESSAGE);
+            return false;
+        }
+        return true;
+    }
+
+    private void handleCancel() {
+        this.dispose();
     }
 
     /**
@@ -191,60 +242,53 @@ public class InventoryManagementDialog extends javax.swing.JDialog {
         java.awt.GridBagConstraints gridBagConstraints;
 
         formPanel = new javax.swing.JPanel();
-        lblBookName = new javax.swing.JLabel();
-        lblBookID = new javax.swing.JLabel();
-        lblAuthor = new javax.swing.JLabel();
-        lblKind = new javax.swing.JLabel();
-        txtInventoryID = new javax.swing.JTextField();
-        txtAddress = new javax.swing.JTextField();
-        cbBook = new javax.swing.JComboBox<>();
+        lblBookId = new javax.swing.JLabel();
+        lblInventoryId = new javax.swing.JLabel();
+        lblWarehouseId = new javax.swing.JLabel();
+        txtInventoryId = new javax.swing.JTextField();
+        txtWarehouseId = new javax.swing.JTextField();
+        lblQuantity = new javax.swing.JLabel();
+        txtBookId = new javax.swing.JTextField();
         txtQuantity = new javax.swing.JTextField();
+        lblBookNameDisplay = new javax.swing.JLabel();
+        lblWarehouseNameDisplay = new javax.swing.JLabel();
         pnButton = new javax.swing.JPanel();
         btnSave = new javax.swing.JButton();
         btnCancel = new javax.swing.JButton();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
-        setTitle("Add and delete book");
+        setTitle("ADD/UPDATE INVENTORY\n");
         setModal(true);
         setResizable(false);
 
         formPanel.setBorder(javax.swing.BorderFactory.createEmptyBorder(1, 1, 1, 1));
         formPanel.setLayout(new java.awt.GridBagLayout());
 
-        lblBookName.setText("QUANTITY INVENTORY: ");
+        lblBookId.setText("BOOK ID: ");
         gridBagConstraints = new java.awt.GridBagConstraints();
         gridBagConstraints.gridx = 0;
         gridBagConstraints.gridy = 1;
         gridBagConstraints.anchor = java.awt.GridBagConstraints.WEST;
         gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
-        formPanel.add(lblBookName, gridBagConstraints);
+        formPanel.add(lblBookId, gridBagConstraints);
 
-        lblBookID.setText("INVENTORY ID");
+        lblInventoryId.setText("INVENTORY ID: ");
         gridBagConstraints = new java.awt.GridBagConstraints();
         gridBagConstraints.gridx = 0;
         gridBagConstraints.gridy = 0;
         gridBagConstraints.anchor = java.awt.GridBagConstraints.WEST;
         gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
-        formPanel.add(lblBookID, gridBagConstraints);
+        formPanel.add(lblInventoryId, gridBagConstraints);
 
-        lblAuthor.setText("ADDRESS: ");
+        lblWarehouseId.setText("WAREHOUSE ID: ");
         gridBagConstraints = new java.awt.GridBagConstraints();
         gridBagConstraints.gridx = 0;
         gridBagConstraints.gridy = 2;
         gridBagConstraints.anchor = java.awt.GridBagConstraints.WEST;
         gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
-        formPanel.add(lblAuthor, gridBagConstraints);
+        formPanel.add(lblWarehouseId, gridBagConstraints);
 
-        lblKind.setText("BOOK ID: ");
-        gridBagConstraints = new java.awt.GridBagConstraints();
-        gridBagConstraints.gridx = 0;
-        gridBagConstraints.gridy = 3;
-        gridBagConstraints.anchor = java.awt.GridBagConstraints.WEST;
-        gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
-        formPanel.add(lblKind, gridBagConstraints);
-
-        txtInventoryID.setEditable(false);
-        txtInventoryID.setText("AUTO GENERATE");
+        txtInventoryId.setEditable(false);
         gridBagConstraints = new java.awt.GridBagConstraints();
         gridBagConstraints.gridx = 1;
         gridBagConstraints.gridy = 0;
@@ -252,7 +296,7 @@ public class InventoryManagementDialog extends javax.swing.JDialog {
         gridBagConstraints.anchor = java.awt.GridBagConstraints.WEST;
         gridBagConstraints.weightx = 1.0;
         gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
-        formPanel.add(txtInventoryID, gridBagConstraints);
+        formPanel.add(txtInventoryId, gridBagConstraints);
         gridBagConstraints = new java.awt.GridBagConstraints();
         gridBagConstraints.gridx = 1;
         gridBagConstraints.gridy = 2;
@@ -260,23 +304,47 @@ public class InventoryManagementDialog extends javax.swing.JDialog {
         gridBagConstraints.anchor = java.awt.GridBagConstraints.WEST;
         gridBagConstraints.weightx = 1.0;
         gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
-        formPanel.add(txtAddress, gridBagConstraints);
+        formPanel.add(txtWarehouseId, gridBagConstraints);
 
-        cbBook.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "Item 1", "Item 2", "Item 3", "Item 4" }));
+        lblQuantity.setText("QUANTITY: ");
         gridBagConstraints = new java.awt.GridBagConstraints();
-        gridBagConstraints.gridx = 1;
+        gridBagConstraints.gridx = 0;
         gridBagConstraints.gridy = 3;
-        gridBagConstraints.fill = java.awt.GridBagConstraints.HORIZONTAL;
         gridBagConstraints.anchor = java.awt.GridBagConstraints.WEST;
         gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
-        formPanel.add(cbBook, gridBagConstraints);
+        formPanel.add(lblQuantity, gridBagConstraints);
         gridBagConstraints = new java.awt.GridBagConstraints();
         gridBagConstraints.gridx = 1;
         gridBagConstraints.gridy = 1;
         gridBagConstraints.fill = java.awt.GridBagConstraints.HORIZONTAL;
         gridBagConstraints.anchor = java.awt.GridBagConstraints.WEST;
+        gridBagConstraints.weightx = 0.1;
+        gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
+        formPanel.add(txtBookId, gridBagConstraints);
+        gridBagConstraints = new java.awt.GridBagConstraints();
+        gridBagConstraints.gridx = 1;
+        gridBagConstraints.gridy = 3;
+        gridBagConstraints.fill = java.awt.GridBagConstraints.HORIZONTAL;
+        gridBagConstraints.anchor = java.awt.GridBagConstraints.WEST;
+        gridBagConstraints.weightx = 1.0;
         gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
         formPanel.add(txtQuantity, gridBagConstraints);
+
+        lblBookNameDisplay.setText("BOOK NAME: ");
+        gridBagConstraints = new java.awt.GridBagConstraints();
+        gridBagConstraints.gridx = 2;
+        gridBagConstraints.gridy = 1;
+        gridBagConstraints.anchor = java.awt.GridBagConstraints.WEST;
+        gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
+        formPanel.add(lblBookNameDisplay, gridBagConstraints);
+
+        lblWarehouseNameDisplay.setText("WAREHOUSE NAME: ");
+        gridBagConstraints = new java.awt.GridBagConstraints();
+        gridBagConstraints.gridx = 2;
+        gridBagConstraints.gridy = 2;
+        gridBagConstraints.anchor = java.awt.GridBagConstraints.WEST;
+        gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
+        formPanel.add(lblWarehouseNameDisplay, gridBagConstraints);
 
         getContentPane().add(formPanel, java.awt.BorderLayout.CENTER);
 
@@ -307,6 +375,7 @@ public class InventoryManagementDialog extends javax.swing.JDialog {
 
     private void txtSearchActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_txtSearchActionPerformed
         // TODO add your handling code here:
+
     }//GEN-LAST:event_txtSearchActionPerformed
 
     private void tblBookMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_tblBookMouseClicked
@@ -319,12 +388,13 @@ public class InventoryManagementDialog extends javax.swing.JDialog {
 
     private void btnSaveActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnSaveActionPerformed
         // TODO add your handling code here:
-        
+        handleSave();
+
     }//GEN-LAST:event_btnSaveActionPerformed
 
     private void btnCancelActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnCancelActionPerformed
-        // TODO add your handling code here:
-        
+        // TODO add your handling code here
+        handleCancel();
     }//GEN-LAST:event_btnCancelActionPerformed
 
     /**
@@ -358,7 +428,7 @@ public class InventoryManagementDialog extends javax.swing.JDialog {
         /* Create and display the dialog */
         java.awt.EventQueue.invokeLater(new Runnable() {
             public void run() {
-                InventoryManagementDialog dialog = new InventoryManagementDialog(new javax.swing.JFrame(), null, false);
+                InventoryManagementDialog dialog = new InventoryManagementDialog(new javax.swing.JFrame(), true, null);
                 dialog.addWindowListener(new java.awt.event.WindowAdapter() {
                     @Override
                     public void windowClosing(java.awt.event.WindowEvent e) {
@@ -373,15 +443,17 @@ public class InventoryManagementDialog extends javax.swing.JDialog {
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JButton btnCancel;
     private javax.swing.JButton btnSave;
-    private javax.swing.JComboBox<String> cbBook;
     private javax.swing.JPanel formPanel;
-    private javax.swing.JLabel lblAuthor;
-    private javax.swing.JLabel lblBookID;
-    private javax.swing.JLabel lblBookName;
-    private javax.swing.JLabel lblKind;
+    private javax.swing.JLabel lblBookId;
+    private javax.swing.JLabel lblBookNameDisplay;
+    private javax.swing.JLabel lblInventoryId;
+    private javax.swing.JLabel lblQuantity;
+    private javax.swing.JLabel lblWarehouseId;
+    private javax.swing.JLabel lblWarehouseNameDisplay;
     private javax.swing.JPanel pnButton;
-    private javax.swing.JTextField txtAddress;
-    private javax.swing.JTextField txtInventoryID;
+    private javax.swing.JTextField txtBookId;
+    private javax.swing.JTextField txtInventoryId;
     private javax.swing.JTextField txtQuantity;
+    private javax.swing.JTextField txtWarehouseId;
     // End of variables declaration//GEN-END:variables
 }

@@ -18,178 +18,169 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.logging.Logger;
 import java.util.logging.Level;
-import javax.swing.JOptionPane;
-import java.sql.*;
+import java.util.List;
 
 public class CustomerDAO {
 
     private static final Logger LOGGER = Logger.getLogger(CustomerDAO.class.getName());
 
-    public synchronized String generateNextId() {
-        
-        String id = null;
-        String sql = "SELECT MAX(MaKH) FROM KhachHang WHERE MaKH LIKE 'KH%'";
-        try (Connection conn = DBConnection.getConnection(); 
-                PreparedStatement pstmt = conn.prepareStatement(sql); 
-                ResultSet rs = pstmt.executeQuery()) {
-
-            if (rs.next()) {
-                id = rs.getString(1);
-            }
-
-            int nextNumber = 1;
-            if (id != null && id.matches("KH\\d{3,}")) {
-                try {
-                    String numPart = id.substring(2);
-                    nextNumber = Integer.parseInt(numPart) + 1;
-                } catch (NumberFormatException e) {
-                    LOGGER.log(Level.WARNING, "Lỗi khi phân tích số từ MaKhachHang: " + id + ". Bắt đầu lại từ KH001.", e);
-                    nextNumber = 1;
-                }
-            }
-            return String.format("KH%03d", nextNumber);
-        } catch (SQLException e) {
-            LOGGER.log(Level.SEVERE, "Lỗi khi sinh mã khách hàng tiếp theo: " + e.getMessage(), e);
-            return "KH_ERROR_" + System.currentTimeMillis();
-        }
-    }
-    
+    /**
+     * Thêm một khách hàng mới vào cơ sở dữ liệu.
+     *
+     * @param customer Đối tượng Customer cần thêm.
+     * @return true nếu thêm thành công, false nếu có lỗi xảy ra.
+     */
     public boolean addCustomer(Customer customer) {
-        String sql = "INSERT INTO KhachHang (MaKH, TenKH, DiaChi, SDT) VALUES (?, ?, ?, ?)";
+        String sql = "INSERT INTO dbo.customers (full_name, email, phone, address) VALUES (?, ?, ?, ?)";
         try (Connection conn = DBConnection.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
 
-            String id = customer.getId();
-            if (id == null || id.isEmpty()) {
-                id = generateNextId();
-                customer.setId(id);
-            }
-            
-            pstmt.setString(1, customer.getId());
-            pstmt.setString(2, customer.getName());
-            pstmt.setString(3, customer.getAddress());
-            pstmt.setString(4, customer.getPhoneNumber());
+            stmt.setString(1, customer.getFullName());
+            stmt.setString(2, customer.getEmail());
+            stmt.setString(3, customer.getPhone());
+            stmt.setString(4, customer.getAddress());
 
-            int rowsAffected = pstmt.executeUpdate();
+            int rowsAffected = stmt.executeUpdate();
             return rowsAffected > 0;
         } catch (SQLException e) {
-            if (e.getSQLState().startsWith("23")) { 
-                LOGGER.log(Level.WARNING, "Lỗi: Mã khách hàng '" + customer.getId() + "' đã tồn tại.", e);
-                JOptionPane.showMessageDialog(null, "The customer code existed " + customer.getId() + " Please enter other code.", "ERROR", JOptionPane.ERROR_MESSAGE);
-            } else {
-                LOGGER.log(Level.SEVERE, "Lỗi khi thêm khách hàng: " + e.getMessage(), e);
-                JOptionPane.showMessageDialog(null, "Error when add customer code: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
-            }
+            LOGGER.log(Level.SEVERE, "Lỗi khi thêm khách hàng mới: " + customer.getFullName(), e);
             return false;
         }
     }
-    
+
+    /**
+     * Cập nhật thông tin của một khách hàng đã tồn tại.
+     *
+     * @param customer Đối tượng Customer chứa thông tin cập nhật.
+     * @return true nếu cập nhật thành công, false nếu có lỗi hoặc không tìm thấy khách hàng.
+     */
     public boolean updateCustomer(Customer customer) {
-        String sql = "UPDATE KhachHang SET TenKH = ?, DiaChi = ?, SDT = ? WHERE MaKH = ?"; // Đã bỏ Email
+        String sql = "UPDATE dbo.customers SET full_name = ?, email = ?, phone = ?, address = ? WHERE customer_id = ?";
         try (Connection conn = DBConnection.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
 
-            pstmt.setString(1, customer.getName());
-            pstmt.setString(2, customer.getAddress());
-            pstmt.setString(3, customer.getPhoneNumber());
-            pstmt.setString(4, customer.getId()); // Chỉ số đã thay đổi
+            stmt.setString(1, customer.getFullName());
+            stmt.setString(2, customer.getEmail());
+            stmt.setString(3, customer.getPhone());
+            stmt.setString(4, customer.getAddress());
+            stmt.setInt(5, customer.getCustomerId());
 
-            int rowsAffected = pstmt.executeUpdate();
+            int rowsAffected = stmt.executeUpdate();
             return rowsAffected > 0;
         } catch (SQLException e) {
-            LOGGER.log(Level.SEVERE, "Lỗi khi cập nhật khách hàng: " + e.getMessage(), e);
+            LOGGER.log(Level.SEVERE, "Lỗi khi cập nhật khách hàng có ID: " + customer.getCustomerId(), e);
             return false;
         }
     }
-    
-    public boolean deleteCustomer(String id) {
-        String sql = "DELETE FROM KhachHang WHERE MaKH = ?";
+
+    /**
+     * Xóa một khách hàng khỏi cơ sở dữ liệu dựa trên ID.
+     *
+     * @param customerId ID của khách hàng cần xóa.
+     * @return true nếu xóa thành công, false nếu có lỗi hoặc không tìm thấy khách hàng.
+     */
+    public boolean deleteCustomer(int customerId) {
+        String sql = "DELETE FROM dbo.customers WHERE customer_id = ?";
         try (Connection conn = DBConnection.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
 
-            pstmt.setString(1, id);
+            stmt.setInt(1, customerId);
 
-            int rowsAffected = pstmt.executeUpdate();
+            int rowsAffected = stmt.executeUpdate();
             return rowsAffected > 0;
         } catch (SQLException e) {
-            LOGGER.log(Level.SEVERE, "Lỗi khi xóa khách hàng: " + e.getMessage(), e);
+            LOGGER.log(Level.SEVERE, "Lỗi khi xóa khách hàng có ID: " + customerId, e);
             return false;
         }
     }
-    
-    public Customer getCustomerById(String customerId) throws SQLException {
-        Customer customer = null;
-        String sql = "SELECT MaKH, TenKH, DiaChi, SDT FROM KhachHang WHERE MaKH = ?";
+
+    /**
+     * Lấy một khách hàng dựa trên ID.
+     *
+     * @param customerId ID của khách hàng cần tìm.
+     * @return Đối tượng Customer nếu tìm thấy, ngược lại trả về null.
+     */
+    public Customer getCustomerById(int customerId) {
+        String sql = "SELECT * FROM dbo.customers WHERE customer_id = ?";
         try (Connection conn = DBConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, customerId);
-            try (ResultSet rs = ps.executeQuery()) {
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setInt(1, customerId);
+
+            try (ResultSet rs = stmt.executeQuery()) {
                 if (rs.next()) {
-                    customer = new Customer(
-                        rs.getString("MaKH"),
-                        rs.getString("TenKH"),
-                        rs.getString("DiaChi"),
-                        rs.getString("SDT")
-                    );
+                    return mapCustomerFromResultSet(rs);
                 }
             }
-        } catch (SQLException ex) {
-            LOGGER.log(Level.SEVERE, "Lỗi khi lấy khách hàng theo ID: " + customerId, ex);
-            throw ex;
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Lỗi khi lấy khách hàng theo ID: " + customerId, e);
         }
+        return null; // Trả về null nếu không tìm thấy hoặc có lỗi
+    }
+
+    /**
+     * Lấy tất cả các khách hàng có trong cơ sở dữ liệu.
+     *
+     * @return Một danh sách các đối tượng Customer.
+     */
+    public List<Customer> getAllCustomers() {
+        List<Customer> customers = new ArrayList<>();
+        String sql = "SELECT * FROM dbo.customers";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql);
+             ResultSet rs = stmt.executeQuery()) {
+
+            while (rs.next()) {
+                customers.add(mapCustomerFromResultSet(rs));
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Lỗi khi lấy tất cả khách hàng.", e);
+        }
+        return customers;
+    }
+
+    /**
+     * Tìm kiếm khách hàng theo từ khóa trong tên, email hoặc số điện thoại.
+     *
+     * @param searchTerm Từ khóa tìm kiếm.
+     * @return Danh sách các khách hàng phù hợp.
+     */
+    public List<Customer> searchCustomers(String searchTerm) {
+        List<Customer> customers = new ArrayList<>();
+        String sql = "SELECT * FROM dbo.customers WHERE full_name LIKE ? OR email LIKE ? OR phone LIKE ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            String searchPattern = "%" + searchTerm + "%";
+            stmt.setString(1, searchPattern);
+            stmt.setString(2, searchPattern);
+            stmt.setString(3, searchPattern);
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    customers.add(mapCustomerFromResultSet(rs));
+                }
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Lỗi khi tìm kiếm khách hàng với từ khóa: " + searchTerm, e);
+        }
+        return customers;
+    }
+
+    /**
+     * Phương thức trợ giúp để ánh xạ một ResultSet thành một đối tượng Customer.
+     *
+     * @param rs ResultSet chứa dữ liệu của một hàng trong bảng khách hàng.
+     * @return Một đối tượng Customer đã được điền dữ liệu.
+     * @throws SQLException nếu có lỗi xảy ra khi truy cập ResultSet.
+     */
+    private Customer mapCustomerFromResultSet(ResultSet rs) throws SQLException {
+        Customer customer = new Customer();
+        customer.setCustomerId(rs.getInt("customer_id"));
+        customer.setFullName(rs.getString("full_name"));
+        customer.setEmail(rs.getString("email"));
+        customer.setPhone(rs.getString("phone"));
+        customer.setAddress(rs.getString("address"));
         return customer;
     }
-    
-    public ArrayList<Customer> getAllCustomers() {
-        ArrayList<Customer> customers = new ArrayList<>();
-        String sql = "SELECT * FROM KhachHang ORDER BY TenKH ASC";
-        try (Connection conn = DBConnection.getConnection();
-             Statement stmt = conn.createStatement();
-             ResultSet rs = stmt.executeQuery(sql)) {
-
-            while (rs.next()) {
-                customers.add(new Customer(
-                    rs.getString("MaKH"),
-                    rs.getString("TenKH"),
-                    rs.getString("DiaChi"),
-                    rs.getString("SDT")
-                ));
-            }
-        } catch (SQLException e) {
-            LOGGER.log(Level.SEVERE, "Lỗi khi lấy tất cả khách hàng: " + e.getMessage(), e);
-            e.printStackTrace();
-        }
-        return customers;
-    }
-    
-    public ArrayList<Customer> searchCustomers(String search) {
-        ArrayList<Customer> customers = new ArrayList<>();
-        // Đã bỏ Email khỏi điều kiện tìm kiếm
-        String sql = "SELECT * FROM KhachHang WHERE LOWER(MaKH) LIKE ? OR LOWER(TenKH) LIKE ? OR LOWER(DiaChi) LIKE ? OR LOWER(SDT) LIKE ? ORDER BY TenKhachHang ASC";
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-
-            String searchPattern = "%" + search.toLowerCase() + "%";
-            pstmt.setString(1, searchPattern);
-            pstmt.setString(2, searchPattern);
-            pstmt.setString(3, searchPattern); 
-            pstmt.setString(4, searchPattern); 
-
-            ResultSet rs = pstmt.executeQuery();
-
-            while (rs.next()) {
-                customers.add(new Customer(
-                    rs.getString("MaKH"),
-                    rs.getString("TenKH"),
-                    rs.getString("DiaChi"),
-                    rs.getString("SDT")
-                ));
-            }
-        } catch (SQLException e) {
-            LOGGER.log(Level.SEVERE, "Lỗi khi tìm kiếm khách hàng: " + e.getMessage(), e);
-        }
-        return customers;
-    }
-    
-    
 }

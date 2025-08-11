@@ -8,12 +8,14 @@ package com.bookmanagement.view;
  *
  * @author ADMIN
  */
-import com.bookmanagement.Dao.BookManagementDAO;
+import com.bookmanagement.dao.BookDAO;
 import com.bookmanagement.model.Book;
 import java.math.BigDecimal;
 import javax.swing.JOptionPane;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.sql.SQLException;
+import java.util.regex.Pattern;
 
 public class BookManagementDialog extends javax.swing.JDialog {
 
@@ -21,7 +23,7 @@ public class BookManagementDialog extends javax.swing.JDialog {
      * Creates new form BookManagementDialog
      */
     private Book currentBook; // Đối tượng Book đang được chỉnh sửa (null nếu thêm mới)
-    private BookManagementDAO bookDAO;
+    private BookDAO bookDAO;
     private boolean dataSaved = false;
 
     /**
@@ -33,119 +35,153 @@ public class BookManagementDialog extends javax.swing.JDialog {
      */
     public BookManagementDialog(java.awt.Frame parent, boolean modal, Book book) {
         super(parent, modal);
-        this.bookDAO = new BookManagementDAO();
+        this.bookDAO = new BookDAO();
         this.currentBook = book;
         initComponents();
         setLocationRelativeTo(parent);
-        this.setTitle("ADD BOOK AND UPDATE BOOK");
         
-        
-        
+        // Set the title and state of input fields
         if (currentBook == null) {
-            // Chế độ Thêm mới: Đặt tiêu đề và xóa trắng các trường
-            setTitle("ADD NEW BOOK!");
-            setSize(500, 300);
-            clearForm();
-            txtBookID.setToolTipText("Leave blanks if you want the system to generate code");
-            txtBookID.setEditable(true);
+            this.setTitle("Add New Book");
+            txtBookID.setText("ID is auto-generated");
+            txtBookID.setEnabled(false);
         } else {
-            // Chế độ Chỉnh sửa: Đặt tiêu đề và tải dữ liệu sách vào form
-            setTitle("UPDATE INFORMATION OF BOOK");
-            setSize(500, 300);
-            loadBookDetails(currentBook);
-            txtBookID.setEditable(false);
-
+            this.setTitle("Update Book");
+            fillDataFromBook();
+            txtBookID.setEnabled(false); // ID is not editable
         }
-    }    
+    } 
     
-    private void loadBookDetails(Book book) {
-        if (book != null) {
-            txtBookID.setText(book.getBookID());
-            txtBookName.setText(book.getBookName());
-            txtAuthor.setText(book.getAuthor());
-            txtKind.setText(book.getGenre());
-            txtDescribe.setText(book.getDescription());
-            txtPrice.setText(book.getPrice() != null ? book.getPrice().toPlainString() : ""); // Đã điều chỉnh: getDonGia()
-        }
-    }
-
-    private void clearForm() {
-        txtBookID.setText("");
-        txtBookName.setText("");
-        txtAuthor.setText("");
-        txtKind.setText("");
-        txtDescribe.setText("");
-        txtPrice.setText("");
-    }
-
-
-    public void save() {
-        // 1. Lấy dữ liệu từ các trường nhập liệu
-        String name = txtBookName.getText().trim();
-        String author = txtAuthor.getText().trim();
-        String kind = txtKind.getText().trim();
-        String description = txtDescribe.getText().trim();
-        String priceStr = txtPrice.getText().trim();
-
-        // 2. Validate dữ liệu nhập vào (kiểm tra rỗng, định dạng số, ...)
-        if (name.isEmpty() || author.isEmpty() || priceStr.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Please enter Book Name, Author, Price.", "NOTIFICATION!", JOptionPane.WARNING_MESSAGE);
-            return;
-        }
-
-        try {
-            BigDecimal price = new BigDecimal(priceStr);
-
-            if (price.compareTo(BigDecimal.ONE) < 0) {
-                JOptionPane.showMessageDialog(this, "Price are not negative.", "NOTIFICATION!", JOptionPane.WARNING_MESSAGE);
-                return;
-            }
-
-            boolean result;
-            if (currentBook == null) {
-                Book book = new Book(author, name, author, description, price);
-                result = bookDAO.addBook(book);
-                if (result) {
-                    JOptionPane.showMessageDialog(this, "Add new Book complete!", "NOTIFICATION!", JOptionPane.INFORMATION_MESSAGE);
-                }
-                else{
-                    
-                }
-            } 
-            else {
-                currentBook.setBookName(name);
-                currentBook.setAuthor(author);
-                currentBook.setGenre(kind);
-                currentBook.setDescription(description);
-                currentBook.setPrice(price);
-                result = bookDAO.updateBook(currentBook);
-                if(result){
-                    JOptionPane.showMessageDialog(this, "Update new Book complete!", "NOTIFICATION!", JOptionPane.INFORMATION_MESSAGE);
-                }
-                else{
-                    JOptionPane.showMessageDialog(this, "Update new Book fail!", "NOTIFICATION!", JOptionPane.ERROR_MESSAGE);
-                }
-            }
-
-            dataSaved = true; // Đánh dấu là dữ liệu đã được lưu thành công
-            dispose(); // Đóng dialog
-
-        } catch (NumberFormatException ex) {
-            JOptionPane.showMessageDialog(this, "Price and quantity must be valid numbers.", "NOTIFICATION!", JOptionPane.ERROR_MESSAGE);
-        } catch (Exception ex) {
-            Logger.getLogger(BookManagementDialog.class.getName()).log(Level.SEVERE, "Lỗi khi lưu dữ liệu sách", ex);
-            JOptionPane.showMessageDialog(this, "ERROR: " + ex.getMessage(), "NOTIFICATION!", JOptionPane.ERROR_MESSAGE);
-            ex.printStackTrace();
-        }
-    }
-
-    public void cancel() {
-        dataSaved = false;
-        dispose();
-    }
-
-    public boolean isDataSaved() {
+     public boolean isDataSaved() {
         return dataSaved;
+    }
+    
+     
+    private void fillDataFromBook() {
+        if (currentBook != null) {
+            txtBookID.setText(String.valueOf(currentBook.getBookId()));
+            txtTitle.setText(currentBook.getTitle());
+            txtAuthor.setText(currentBook.getAuthor());
+            txtIsbn.setText(currentBook.getIsbn());
+            txtPrice.setText(currentBook.getPrice().toString());
+            txtCategory.setText(currentBook.getCategory());
+        }
+    }
+     
+
+    private Book getBookDataFromForm() {
+        try {
+            // Check for required fields
+            if (txtTitle.getText().trim().isEmpty() || txtAuthor.getText().trim().isEmpty() || 
+                txtIsbn.getText().trim().isEmpty() || txtPrice.getText().trim().isEmpty() || 
+                txtCategory.getText().trim().isEmpty()) {
+                JOptionPane.showMessageDialog(this, "Please fill in all required fields.", "Error", JOptionPane.ERROR_MESSAGE);
+                return null;
+            }
+
+            String title = txtTitle.getText();
+            String author = txtAuthor.getText();
+            String isbn = txtIsbn.getText();
+            String category = txtCategory.getText();
+            BigDecimal price = new BigDecimal(txtPrice.getText());
+            
+            Book book = (currentBook == null) ? new Book() : currentBook;
+            book.setTitle(title);
+            book.setAuthor(author);
+            book.setIsbn(isbn);
+            book.setPrice(price);
+            book.setCategory(category);
+            
+            return book;
+        } catch (NumberFormatException e) {
+            JOptionPane.showMessageDialog(this, "Price must be a valid number.", "Input Error", JOptionPane.ERROR_MESSAGE);
+            return null;
+        }
+    }
+
+    private void saveBook() {
+        if (validateInput()) {
+            Book book = new Book();
+            book.setTitle(txtTitle.getText());
+            book.setAuthor(txtAuthor.getText());
+            book.setIsbn(txtIsbn.getText());
+            book.setCategory(txtCategory.getText());
+
+            try {
+                book.setPrice(new BigDecimal(txtPrice.getText()));
+
+                if (currentBook == null) {
+                    // Add new book
+                    if (bookDAO.addBook(book)) {
+                        JOptionPane.showMessageDialog(this, "Book added successfully.", "Notification", JOptionPane.INFORMATION_MESSAGE);
+                        dataSaved = true;
+                        this.dispose();
+                    } else {
+                        JOptionPane.showMessageDialog(this, "Failed to add book. Please try again.", "Error", JOptionPane.ERROR_MESSAGE);
+                    }
+                } else {
+                    // Update existing book
+                    book.setBookId(currentBook.getBookId());
+                    if (bookDAO.updateBook(book)) {
+                        JOptionPane.showMessageDialog(this, "Book updated successfully.", "Notification", JOptionPane.INFORMATION_MESSAGE);
+                        dataSaved = true;
+                        this.dispose();
+                    } else {
+                        JOptionPane.showMessageDialog(this, "Failed to update book. Please try again.", "Error", JOptionPane.ERROR_MESSAGE);
+                    }
+                }
+            } catch (NumberFormatException e) {
+                JOptionPane.showMessageDialog(this, "Invalid price format. Please enter a valid number.", "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        }
+    }
+    
+    
+    private boolean validateInput() {
+        // Check for empty fields
+        if (txtTitle.getText().trim().isEmpty() ||
+            txtAuthor.getText().trim().isEmpty() ||
+            txtIsbn.getText().trim().isEmpty() ||
+            txtPrice.getText().trim().isEmpty() ||
+            txtCategory.getText().trim().isEmpty()) {
+            JOptionPane.showMessageDialog(this, "All fields are required. Please fill in all information.", "Validation Error", JOptionPane.ERROR_MESSAGE);
+            return false;
+        }
+
+        // Validate Price format
+        try {
+            BigDecimal price = new BigDecimal(txtPrice.getText());
+            if (price.compareTo(BigDecimal.ZERO) <= 0) {
+                JOptionPane.showMessageDialog(this, "Price must be a positive number.", "Validation Error", JOptionPane.ERROR_MESSAGE);
+                return false;
+            }
+        } catch (NumberFormatException e) {
+            JOptionPane.showMessageDialog(this, "Invalid price format. Please enter a valid number.", "Validation Error", JOptionPane.ERROR_MESSAGE);
+            return false;
+        }
+
+        // Validate ISBN format (basic regex check for ISBN-10 or ISBN-13)
+        // A simple regex to check for ISBN-10 or ISBN-13 format
+        // This is a basic check and can be improved.
+        String isbnRegex = "^(?:ISBN(?:-13)?:? )?(?=[0-9X]{10}$|(?=(?:[0-9]+[- ]){3})[- 0-9X]{13}$|97[89][0-9]{10}$|(?=(?:[0-9]+[- ]){4})[- 0-9]{17}$)(?:97[89][- ]?)?[0-9]{1,5}[- ]?[0-9]+[- ]?[0-9]+[- ]?[0-9X]$";
+        if (!Pattern.matches(isbnRegex, txtIsbn.getText().trim())) {
+            JOptionPane.showMessageDialog(this, "Invalid ISBN format. Please enter a valid ISBN-10 or ISBN-13.", "Validation Error", JOptionPane.ERROR_MESSAGE);
+            return false;
+        }
+        
+        // Check for duplicate ISBN when adding a new book
+        if (currentBook == null) {
+            try {
+                if (bookDAO.isIsbnExists(txtIsbn.getText().trim())) {
+                    JOptionPane.showMessageDialog(this, "This ISBN already exists. Please enter a unique ISBN.", "Validation Error", JOptionPane.ERROR_MESSAGE);
+                    return false;
+                }
+            } catch (SQLException ex) {
+                Logger.getLogger(BookManagementDialog.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+
+        return true;
     }
 
     /**
@@ -159,18 +195,18 @@ public class BookManagementDialog extends javax.swing.JDialog {
         java.awt.GridBagConstraints gridBagConstraints;
 
         formPanel = new javax.swing.JPanel();
-        lblBookName = new javax.swing.JLabel();
-        lblBookID = new javax.swing.JLabel();
         lblAuthor = new javax.swing.JLabel();
-        lblKind = new javax.swing.JLabel();
+        lblTitle = new javax.swing.JLabel();
+        lblIsbn = new javax.swing.JLabel();
         lblPrice = new javax.swing.JLabel();
-        txtBookID = new javax.swing.JTextField();
-        txtBookName = new javax.swing.JTextField();
+        txtTitle = new javax.swing.JTextField();
         txtAuthor = new javax.swing.JTextField();
-        txtKind = new javax.swing.JTextField();
+        txtIsbn = new javax.swing.JTextField();
         txtPrice = new javax.swing.JTextField();
-        lblDescribe = new javax.swing.JLabel();
-        txtDescribe = new javax.swing.JTextField();
+        lblCategory = new javax.swing.JLabel();
+        txtCategory = new javax.swing.JTextField();
+        lblBookId = new javax.swing.JLabel();
+        txtBookID = new javax.swing.JTextField();
         pnButton = new javax.swing.JPanel();
         btnSave = new javax.swing.JButton();
         btnCancel = new javax.swing.JButton();
@@ -183,47 +219,37 @@ public class BookManagementDialog extends javax.swing.JDialog {
         formPanel.setBorder(javax.swing.BorderFactory.createEmptyBorder(1, 1, 1, 1));
         formPanel.setLayout(new java.awt.GridBagLayout());
 
-        lblBookName.setText("Book Name: ");
-        gridBagConstraints = new java.awt.GridBagConstraints();
-        gridBagConstraints.gridx = 0;
-        gridBagConstraints.gridy = 1;
-        gridBagConstraints.anchor = java.awt.GridBagConstraints.WEST;
-        gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
-        formPanel.add(lblBookName, gridBagConstraints);
-
-        lblBookID.setText("ID BOOK: ");
+        lblAuthor.setText("AUTHOR: ");
         gridBagConstraints = new java.awt.GridBagConstraints();
         gridBagConstraints.gridx = 0;
         gridBagConstraints.gridy = 0;
         gridBagConstraints.anchor = java.awt.GridBagConstraints.WEST;
         gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
-        formPanel.add(lblBookID, gridBagConstraints);
+        formPanel.add(lblAuthor, gridBagConstraints);
 
-        lblAuthor.setText("Author: ");
+        lblTitle.setText("TITLE: ");
+        gridBagConstraints = new java.awt.GridBagConstraints();
+        gridBagConstraints.gridx = 0;
+        gridBagConstraints.gridy = 1;
+        gridBagConstraints.anchor = java.awt.GridBagConstraints.WEST;
+        gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
+        formPanel.add(lblTitle, gridBagConstraints);
+
+        lblIsbn.setText("ISBN: ");
         gridBagConstraints = new java.awt.GridBagConstraints();
         gridBagConstraints.gridx = 0;
         gridBagConstraints.gridy = 2;
         gridBagConstraints.anchor = java.awt.GridBagConstraints.WEST;
         gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
-        formPanel.add(lblAuthor, gridBagConstraints);
+        formPanel.add(lblIsbn, gridBagConstraints);
 
-        lblKind.setText("Kind: ");
+        lblPrice.setText("PRICE:  ");
         gridBagConstraints = new java.awt.GridBagConstraints();
         gridBagConstraints.gridx = 0;
         gridBagConstraints.gridy = 3;
         gridBagConstraints.anchor = java.awt.GridBagConstraints.WEST;
         gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
-        formPanel.add(lblKind, gridBagConstraints);
-
-        lblPrice.setText("Price: ");
-        gridBagConstraints = new java.awt.GridBagConstraints();
-        gridBagConstraints.gridx = 0;
-        gridBagConstraints.gridy = 5;
-        gridBagConstraints.anchor = java.awt.GridBagConstraints.WEST;
-        gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
         formPanel.add(lblPrice, gridBagConstraints);
-
-        txtBookID.setEditable(false);
         gridBagConstraints = new java.awt.GridBagConstraints();
         gridBagConstraints.gridx = 1;
         gridBagConstraints.gridy = 0;
@@ -231,11 +257,11 @@ public class BookManagementDialog extends javax.swing.JDialog {
         gridBagConstraints.anchor = java.awt.GridBagConstraints.WEST;
         gridBagConstraints.weightx = 1.0;
         gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
-        formPanel.add(txtBookID, gridBagConstraints);
+        formPanel.add(txtTitle, gridBagConstraints);
 
-        txtBookName.addActionListener(new java.awt.event.ActionListener() {
+        txtAuthor.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
-                txtBookNameActionPerformed(evt);
+                txtAuthorActionPerformed(evt);
             }
         });
         gridBagConstraints = new java.awt.GridBagConstraints();
@@ -245,7 +271,7 @@ public class BookManagementDialog extends javax.swing.JDialog {
         gridBagConstraints.anchor = java.awt.GridBagConstraints.WEST;
         gridBagConstraints.weightx = 1.0;
         gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
-        formPanel.add(txtBookName, gridBagConstraints);
+        formPanel.add(txtAuthor, gridBagConstraints);
         gridBagConstraints = new java.awt.GridBagConstraints();
         gridBagConstraints.gridx = 1;
         gridBagConstraints.gridy = 2;
@@ -253,7 +279,7 @@ public class BookManagementDialog extends javax.swing.JDialog {
         gridBagConstraints.anchor = java.awt.GridBagConstraints.WEST;
         gridBagConstraints.weightx = 1.0;
         gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
-        formPanel.add(txtAuthor, gridBagConstraints);
+        formPanel.add(txtIsbn, gridBagConstraints);
         gridBagConstraints = new java.awt.GridBagConstraints();
         gridBagConstraints.gridx = 1;
         gridBagConstraints.gridy = 3;
@@ -262,27 +288,19 @@ public class BookManagementDialog extends javax.swing.JDialog {
         gridBagConstraints.weightx = 1.0;
         gridBagConstraints.weighty = 1.0;
         gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
-        formPanel.add(txtKind, gridBagConstraints);
-        gridBagConstraints = new java.awt.GridBagConstraints();
-        gridBagConstraints.gridx = 1;
-        gridBagConstraints.gridy = 5;
-        gridBagConstraints.fill = java.awt.GridBagConstraints.HORIZONTAL;
-        gridBagConstraints.anchor = java.awt.GridBagConstraints.WEST;
-        gridBagConstraints.weightx = 1.0;
-        gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
         formPanel.add(txtPrice, gridBagConstraints);
 
-        lblDescribe.setText("Descibe: ");
+        lblCategory.setText("CATEGORY: ");
         gridBagConstraints = new java.awt.GridBagConstraints();
         gridBagConstraints.gridx = 0;
         gridBagConstraints.gridy = 4;
         gridBagConstraints.anchor = java.awt.GridBagConstraints.WEST;
         gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
-        formPanel.add(lblDescribe, gridBagConstraints);
+        formPanel.add(lblCategory, gridBagConstraints);
 
-        txtDescribe.addActionListener(new java.awt.event.ActionListener() {
+        txtCategory.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
-                txtDescribeActionPerformed(evt);
+                txtCategoryActionPerformed(evt);
             }
         });
         gridBagConstraints = new java.awt.GridBagConstraints();
@@ -292,7 +310,28 @@ public class BookManagementDialog extends javax.swing.JDialog {
         gridBagConstraints.anchor = java.awt.GridBagConstraints.WEST;
         gridBagConstraints.weightx = 1.0;
         gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
-        formPanel.add(txtDescribe, gridBagConstraints);
+        formPanel.add(txtCategory, gridBagConstraints);
+
+        lblBookId.setText("BOOK ID: ");
+        gridBagConstraints = new java.awt.GridBagConstraints();
+        gridBagConstraints.gridx = 0;
+        gridBagConstraints.anchor = java.awt.GridBagConstraints.WEST;
+        gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
+        formPanel.add(lblBookId, gridBagConstraints);
+
+        txtBookID.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                txtBookIDActionPerformed(evt);
+            }
+        });
+        gridBagConstraints = new java.awt.GridBagConstraints();
+        gridBagConstraints.gridx = 1;
+        gridBagConstraints.gridy = 5;
+        gridBagConstraints.fill = java.awt.GridBagConstraints.HORIZONTAL;
+        gridBagConstraints.anchor = java.awt.GridBagConstraints.WEST;
+        gridBagConstraints.weightx = 1.0;
+        gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
+        formPanel.add(txtBookID, gridBagConstraints);
 
         getContentPane().add(formPanel, java.awt.BorderLayout.CENTER);
 
@@ -319,13 +358,13 @@ public class BookManagementDialog extends javax.swing.JDialog {
         pack();
     }// </editor-fold>//GEN-END:initComponents
 
-    private void txtBookNameActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_txtBookNameActionPerformed
+    private void txtAuthorActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_txtAuthorActionPerformed
         // TODO add your handling code here:
-    }//GEN-LAST:event_txtBookNameActionPerformed
+    }//GEN-LAST:event_txtAuthorActionPerformed
 
-    private void txtDescribeActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_txtDescribeActionPerformed
+    private void txtCategoryActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_txtCategoryActionPerformed
         // TODO add your handling code here:
-    }//GEN-LAST:event_txtDescribeActionPerformed
+    }//GEN-LAST:event_txtCategoryActionPerformed
 
     private void txtSearchActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_txtSearchActionPerformed
         // TODO add your handling code here:
@@ -341,13 +380,17 @@ public class BookManagementDialog extends javax.swing.JDialog {
 
     private void btnSaveActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnSaveActionPerformed
         // TODO add your handling code here:
-        save();
+        saveBook();
     }//GEN-LAST:event_btnSaveActionPerformed
 
     private void btnCancelActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnCancelActionPerformed
         // TODO add your handling code here:
-        cancel();
+        this.dispose();
     }//GEN-LAST:event_btnCancelActionPerformed
+
+    private void txtBookIDActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_txtBookIDActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_txtBookIDActionPerformed
 
     /**
      * @param args the command line arguments
@@ -396,17 +439,17 @@ public class BookManagementDialog extends javax.swing.JDialog {
     private javax.swing.JButton btnSave;
     private javax.swing.JPanel formPanel;
     private javax.swing.JLabel lblAuthor;
-    private javax.swing.JLabel lblBookID;
-    private javax.swing.JLabel lblBookName;
-    private javax.swing.JLabel lblDescribe;
-    private javax.swing.JLabel lblKind;
+    private javax.swing.JLabel lblBookId;
+    private javax.swing.JLabel lblCategory;
+    private javax.swing.JLabel lblIsbn;
     private javax.swing.JLabel lblPrice;
+    private javax.swing.JLabel lblTitle;
     private javax.swing.JPanel pnButton;
     private javax.swing.JTextField txtAuthor;
     private javax.swing.JTextField txtBookID;
-    private javax.swing.JTextField txtBookName;
-    private javax.swing.JTextField txtDescribe;
-    private javax.swing.JTextField txtKind;
+    private javax.swing.JTextField txtCategory;
+    private javax.swing.JTextField txtIsbn;
     private javax.swing.JTextField txtPrice;
+    private javax.swing.JTextField txtTitle;
     // End of variables declaration//GEN-END:variables
 }

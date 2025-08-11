@@ -9,7 +9,7 @@ package com.bookmanagement.view;
  * @author ADMIN
  */
 import com.bookmanagement.Dao.OrderDAO;
-import com.bookmanagement.Dao.OrderDetailDAO;
+import com.bookmanagement.Dao.OrderItemDAO;
 import com.bookmanagement.model.Order;
 import com.bookmanagement.model.OrderItem;
 import javax.swing.JOptionPane;
@@ -323,7 +323,7 @@ public class OrderManagementPanel extends javax.swing.JPanel {
             try {
                 Order order = orderDAO.getOrderByOrderId(orderId); // Lấy đối tượng Order từ DAO
                 // Cần thêm OrderDetailDAO và phương thức getOrderDetailsByOrderId vào project của bạn
-                 List<OrderItem> orderDetails = (List<OrderItem>) new OrderDetailDAO().getOrderDetailByOrderId(orderId); 
+                 List<OrderItem> orderDetails = (List<OrderItem>) new OrderItemDAO().getOrderDetailByOrderId(orderId); 
                 
                 if (order != null  && orderDetails != null ) { // Bỏ kiểm tra orderDetails tạm thời nếu chưa có
                     // Tạo OrderDetailDialog (cần tạo class này)

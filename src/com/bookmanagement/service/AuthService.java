@@ -40,12 +40,12 @@ public class AuthService {
         if (user != null) {
             // Lấy danh sách quyền hạn từ User.getRoles()
             // Sau đó chuyển đổi nó sang một HashSet để khớp với yêu cầu của UserSession
-            HashSet<String> userPermissions = new HashSet<>(user.getRoles());
+            HashSet<String> userPermissions = new HashSet<>(user.getPermissions());
             
             // Sử dụng phương thức startSession mới để truyền cả user và permissions (dạng Set)
             UserSession.startSession(user, userPermissions);
             
-            LOGGER.log(Level.INFO, "Người dùng đã đăng nhập thành công: {0}", user.getUserName());
+            LOGGER.log(Level.INFO, "Người dùng đã đăng nhập thành công: {0}", user.getUsername());
             return true;
         } else {
             LOGGER.log(Level.WARNING, "Đăng nhập thất bại cho người dùng: {0}", username);

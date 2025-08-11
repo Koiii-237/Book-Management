@@ -28,6 +28,7 @@ import javax.swing.BorderFactory;
 public class HomePanel extends javax.swing.JPanel {
 
     private static final Logger LOGGER = Logger.getLogger(HomePanel.class.getName());
+    private final Map<String, JPanel> contentPanels;
 
     private final MainFrame mainFrame;
     private final SlidingPanel contentSlider;
@@ -39,40 +40,29 @@ public class HomePanel extends javax.swing.JPanel {
     private final Color selectedColor = new Color(79, 70, 229); // Màu khi nút được chọn (Indigo-600)
     private final Color selectedFgColor = Color.WHITE;
     private final Color sidebarDefaultFgColor = Color.WHITE; // Màu chữ mặc định cho sidebar
+    private final Color buttonTextColor = new Color(255, 255, 255);
     
     // Màu nền cho sidebar
     private final Color sidebarBgColor = new Color(30, 41, 59); // Slate-800
 
-    // Lưu trữ các panel nội dung
-    private final Map<String, JPanel> contentPanels = new HashMap<>();
 
     public HomePanel(MainFrame mf) {
         this.mainFrame = mf;
+        this.contentSlider = new SlidingPanel();
+        this.contentPanels = new HashMap<>();
         initComponents();
         applyCustomStyles();
         
-        // Đây là code gốc của bạn, tôi giữ lại
-        contentSlider = new SlidingPanel();
         pnData.add(contentSlider, BorderLayout.CENTER);
         
         // Khởi tạo và lưu trữ các panel nội dung
         contentPanels.put("Home", new Home());
         contentPanels.put("BookManagement", new BookManagementPanel());
         contentPanels.put("InventoryManagement", new InventoryManagementPanel());
-        contentPanels.put("CustomerManagement", new CustomerManagementPanel());
+        contentPanels.put("CustomerManagement", new CustomerPanel());
         contentPanels.put("OrderManagement", new OrderManagementPanel());
         contentPanels.put("UserManagement", new UserManagementPanel());
         contentPanels.put("RevenueStatistics", new RevenueStatisticsPanel()); // Thêm panel thống kê
-
-        // Gắn ActionListener cho các nút Sidebar
-        btnHome.addActionListener(e -> showPanel("Home", btnHome));
-        btnBook.addActionListener(e -> showPanel("BookManagement", btnBook));
-        btnInventory.addActionListener(e -> showPanel("InventoryManagement", btnInventory));
-        btnCustomer.addActionListener(e -> showPanel("CustomerManagement", btnCustomer));
-        btnOrder.addActionListener(e -> showPanel("OrderManagement", btnOrder));
-        btnUser.addActionListener(e -> showPanel("UserManagement", btnUser));
-        btnRevenue.addActionListener(e -> showPanel("RevenueStatistics", btnRevenue)); // Thêm ActionListener cho nút thống kê
-        btnLogout.addActionListener(e -> logout());
 
         // Áp dụng hiệu ứng di chuột cho tất cả các nút
         addHoverEffect(btnHome);
@@ -89,7 +79,66 @@ public class HomePanel extends javax.swing.JPanel {
         setActiveButton(btnHome);
         
         // Cập nhật các nút dựa trên quyền hạn của người dùng
-        updateSidebarVisibility();
+        setupComponents();
+    }
+    
+    
+    private void setupComponents() {
+        // Thiết lập layout cho pnData
+        pnData.setLayout(new BorderLayout());
+        pnData.add(contentSlider, BorderLayout.CENTER);
+        
+        // Khởi tạo các panel nội dung và thêm vào Map
+        contentPanels.put("home", new Home());
+        contentPanels.put("book", new BookManagementPanel());
+        contentPanels.put("customer", new CustomerPanel());
+        contentPanels.put("inventory", new InventoryManagementPanel());
+        contentPanels.put("order", new OrderManagementPanel());
+        contentPanels.put("user", new UserManagementPanel());
+        contentPanels.put("revenue", new RevenueStatisticsPanel());
+        
+        // Hiển thị panel trang chủ ban đầu
+        contentSlider.showPanel(contentPanels.get("home"));
+        setActiveButton(btnHome);
+        
+        // Thiết lập màu sắc và font cho các nút
+        setupButton(btnHome, "Trang chủ");
+        setupButton(btnBook, "Sách");
+        setupButton(btnCustomer, "Khách hàng");
+        setupButton(btnInventory, "Kho hàng");
+        setupButton(btnOrder, "Đơn hàng");
+        setupButton(btnUser, "Người dùng");
+        setupButton(btnRevenue, "Doanh thu");
+        
+        // Hiển thị thông tin người dùng
+        User currentUser = UserSession.getCurrentUser();
+        if (currentUser != null) {
+            lblWelcomeUser.setText("WELCOME, " + currentUser.getUsername() + "!");
+        }
+    }
+    
+    
+     private void setupButton(JButton button, String buttonText) {
+        button.setBackground(defaultButtonColor);
+        button.setForeground(buttonTextColor);
+        button.setFont(new Font("Arial", Font.BOLD, 14));
+        button.setBorder(BorderFactory.createEmptyBorder(10, 15, 10, 15));
+        
+        button.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseEntered(MouseEvent e) {
+                if (button != activeButton) {
+                    button.setBackground(hoverColor);
+                }
+            }
+
+            @Override
+            public void mouseExited(MouseEvent e) {
+                if (button != activeButton) {
+                    button.setBackground(defaultButtonColor);
+                }
+            }
+        });
     }
     
     /**
@@ -145,14 +194,14 @@ public class HomePanel extends javax.swing.JPanel {
         contentSlider.showPanel(contentPanels.get(panelName));
     }
     
-    private void setActiveButton(JButton button) {
+     private void setActiveButton(JButton button) {
         if (activeButton != null) {
-            activeButton.setBackground(sidebarBgColor);
-            activeButton.setForeground(sidebarDefaultFgColor);
+            activeButton.setBackground(defaultButtonColor);
         }
         activeButton = button;
-        activeButton.setBackground(selectedColor);
-        activeButton.setForeground(selectedFgColor);
+        if (activeButton != null) {
+            activeButton.setBackground(selectedColor);
+        }
     }
     
     private void addHoverEffect(JButton button) {
@@ -176,30 +225,7 @@ public class HomePanel extends javax.swing.JPanel {
     public void setWelcomeMessage(String fullName) {
         lblWelcomeUser.setText("Xin chào, " + fullName);
     }
-    
-    public void updateSidebarVisibility() {
-        User currentUser = UserSession.getCurrentUser();
-        if (currentUser != null) {
-            lblWelcomeUser.setText("Xin chào, " + currentUser.getFullName());
 
-            btnBook.setVisible(UserSession.hasPermission("QUANLY_SACH"));
-            btnInventory.setVisible(UserSession.hasPermission("QUANLY_KHO"));
-            btnCustomer.setVisible(UserSession.hasPermission("QUANLY_KHACHHANG"));
-            btnOrder.setVisible(UserSession.hasPermission("QUANLY_DONHANG"));
-            btnUser.setVisible(UserSession.hasPermission("QUANLY_NGUOIDUNG"));
-            btnRevenue.setVisible(UserSession.hasPermission("THONGKE_DOANHTHU")); // Thêm quyền cho nút thống kê
-            btnHome.setVisible(true);
-
-            LOGGER.info("Permissions for user " + currentUser.getUserName() + ": " + UserSession.getPermissions());
-        }
-    }
-
-    private void logout() {
-        AuthService authService = new AuthService();
-        authService.logout();
-        mainFrame.showPanel("Login");
-        mainFrame.getLoginPanel().clearFields();
-    }
     /**
      * This method is called from within the constructor to initialize the form.
      * WARNING: Do NOT modify this code. The content of this method is always
@@ -215,6 +241,7 @@ public class HomePanel extends javax.swing.JPanel {
         btnBook = new javax.swing.JButton();
         btnCustomer = new javax.swing.JButton();
         btnInventory = new javax.swing.JButton();
+        btnPromotion = new javax.swing.JButton();
         btnOrder = new javax.swing.JButton();
         btnUser = new javax.swing.JButton();
         btnRevenue = new javax.swing.JButton();
@@ -284,6 +311,19 @@ public class HomePanel extends javax.swing.JPanel {
         });
         sidebarPanel.add(btnInventory);
 
+        btnPromotion.setBackground(new java.awt.Color(153, 204, 255));
+        btnPromotion.setFont(new java.awt.Font("Arial", 1, 16)); // NOI18N
+        btnPromotion.setForeground(new java.awt.Color(0, 0, 0));
+        btnPromotion.setText("PROMOTION MANAGEMENT");
+        btnPromotion.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(102, 102, 102)));
+        btnPromotion.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
+        btnPromotion.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                btnPromotionActionPerformed(evt);
+            }
+        });
+        sidebarPanel.add(btnPromotion);
+
         btnOrder.setBackground(new java.awt.Color(153, 204, 255));
         btnOrder.setFont(new java.awt.Font("Arial", 1, 16)); // NOI18N
         btnOrder.setForeground(new java.awt.Color(0, 0, 0));
@@ -342,6 +382,11 @@ public class HomePanel extends javax.swing.JPanel {
 
         btnLogout.setFont(new java.awt.Font("Arial", 1, 14)); // NOI18N
         btnLogout.setText("LOG OUT");
+        btnLogout.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                btnLogoutActionPerformed(evt);
+            }
+        });
         userInforPanel.add(btnLogout);
 
         pnHeader.add(userInforPanel, java.awt.BorderLayout.LINE_END);
@@ -355,31 +400,58 @@ public class HomePanel extends javax.swing.JPanel {
 
     private void btnHomeActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnHomeActionPerformed
         // TODO add your handling code here:
+        contentSlider.showPanel(contentPanels.get("home"));
+        setActiveButton(btnHome);
     }//GEN-LAST:event_btnHomeActionPerformed
 
     private void btnBookActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnBookActionPerformed
         // TODO add your handling code here:
+        contentSlider.showPanel(contentPanels.get("book"));
+        setActiveButton(btnBook);
     }//GEN-LAST:event_btnBookActionPerformed
 
     private void btnCustomerActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnCustomerActionPerformed
         // TODO add your handling code here:
+        contentSlider.showPanel(contentPanels.get("customer"));
+        setActiveButton(btnCustomer);
     }//GEN-LAST:event_btnCustomerActionPerformed
 
     private void btnInventoryActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnInventoryActionPerformed
         // TODO add your handling code here:
+        contentSlider.showPanel(contentPanels.get("inventory"));
+        setActiveButton(btnInventory);
     }//GEN-LAST:event_btnInventoryActionPerformed
 
     private void btnOrderActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnOrderActionPerformed
         // TODO add your handling code here:
+        contentSlider.showPanel(contentPanels.get("order"));
+        setActiveButton(btnOrder);
     }//GEN-LAST:event_btnOrderActionPerformed
 
     private void btnUserActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnUserActionPerformed
         // TODO add your handling code here:
+        contentSlider.showPanel(contentPanels.get("user"));
+        setActiveButton(btnUser);
     }//GEN-LAST:event_btnUserActionPerformed
 
     private void btnRevenueActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnRevenueActionPerformed
         // TODO add your handling code here:
+        contentSlider.showPanel(contentPanels.get("revenue"));
+        setActiveButton(btnRevenue);
     }//GEN-LAST:event_btnRevenueActionPerformed
+
+    private void btnLogoutActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnLogoutActionPerformed
+        // TODO add your handling code here:
+        AuthService authService = new AuthService();
+        authService.logout();
+        mainFrame.showLoginPanel();
+    }//GEN-LAST:event_btnLogoutActionPerformed
+
+    private void btnPromotionActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnPromotionActionPerformed
+        // TODO add your handling code here:
+        contentSlider.showPanel(contentPanels.get("promotion"));
+        setActiveButton(btnPromotion);
+    }//GEN-LAST:event_btnPromotionActionPerformed
 
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
@@ -389,6 +461,7 @@ public class HomePanel extends javax.swing.JPanel {
     private javax.swing.JButton btnInventory;
     private javax.swing.JButton btnLogout;
     private javax.swing.JButton btnOrder;
+    private javax.swing.JButton btnPromotion;
     private javax.swing.JButton btnRevenue;
     private javax.swing.JButton btnUser;
     private javax.swing.JLabel lblApplication;

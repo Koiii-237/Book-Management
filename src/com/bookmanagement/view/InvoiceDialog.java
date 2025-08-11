@@ -9,7 +9,7 @@ package com.bookmanagement.view;
  * @author ADMIN
  */
 import com.bookmanagement.Dao.BookManagementDAO;
-import com.bookmanagement.Dao.OrderDetailDAO;
+import com.bookmanagement.Dao.OrderItemDAO;
 import com.bookmanagement.model.Book;
 import com.bookmanagement.model.Invoice;
 import com.bookmanagement.model.OrderItem;
@@ -106,7 +106,7 @@ public class InvoiceDialog extends javax.swing.JDialog {
      * @throws SQLException Nếu có lỗi khi truy vấn cơ sở dữ liệu.
      */
     private void loadData(Invoice invoice) throws SQLException {
-        OrderDetailDAO orderDetailDAO = new OrderDetailDAO();
+        OrderItemDAO orderDetailDAO = new OrderItemDAO();
         BookManagementDAO bookManagementDAO = new BookManagementDAO();
 
         // 1. Xóa nội dung cũ và thiết lập trạng thái mặc định

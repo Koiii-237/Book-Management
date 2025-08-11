@@ -19,7 +19,7 @@ import com.bookmanagement.Dao.BookManagementDAO;
 import com.bookmanagement.Dao.CustomerDAO;
 import com.bookmanagement.Dao.InvoiceDAO;
 import com.bookmanagement.Dao.OrderDAO;
-import com.bookmanagement.Dao.OrderDetailDAO;
+import com.bookmanagement.Dao.OrderItemDAO;
 import com.bookmanagement.model.Book;
 import com.bookmanagement.model.Customer;
 import com.bookmanagement.model.Order;
@@ -56,7 +56,7 @@ public class OrderDialog extends javax.swing.JDialog {
     private final BookManagementDAO bookDAO = new BookManagementDAO();
     private final CustomerDAO customerDAO = new CustomerDAO();
     private final OrderDAO orderDAO = new OrderDAO();
-    private final OrderDetailDAO orderDetailDAO = new OrderDetailDAO();
+    private final OrderItemDAO orderDetailDAO = new OrderItemDAO();
     private final InvoiceDAO invoiceDAO = new InvoiceDAO();
 
     // Data Models

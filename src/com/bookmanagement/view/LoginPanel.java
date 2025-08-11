@@ -52,6 +52,7 @@ public class LoginPanel extends javax.swing.JPanel {
 
         if (username.isEmpty() || password.isEmpty()) {
             lblDisplayResult.setText("Vui lòng nhập đủ tên đăng nhập và mật khẩu.");
+            lblDisplayResult.setForeground(errorColor);
             return;
         }
 
@@ -63,6 +64,7 @@ public class LoginPanel extends javax.swing.JPanel {
 
         if (loginSuccess) {
             System.out.println("Login successful.");
+            lblDisplayResult.setForeground(successColor);
 
             // Lấy User từ UserSession tĩnh sau khi đăng nhập thành công
             User currentUser = UserSession.getCurrentUser();
@@ -71,9 +73,9 @@ public class LoginPanel extends javax.swing.JPanel {
                 // Cập nhật thông tin người dùng trong HomePanel
                 HomePanel home = mainFrame.getHomePanel();
                 if (home != null) {
-                    home.setWelcomeMessage(currentUser.getFullName());
+                    home.setWelcomeMessage(currentUser.getUsername());
                     // GỌI PHƯƠNG THỨC NÀY để chuyển đổi màn hình
-                    mainFrame.showPanel("Home");
+                    mainFrame.showHomePanel();
                 }
             } else {
                 lblDisplayResult.setText("Lỗi hệ thống: Không thể lấy thông tin người dùng.");
