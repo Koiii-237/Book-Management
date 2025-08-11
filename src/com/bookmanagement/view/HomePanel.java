@@ -8,7 +8,6 @@ import com.bookmanagement.model.User;
 import com.bookmanagement.model.UserSession;
 import com.bookmanagement.service.AuthService;
 import java.awt.BorderLayout;
-import java.awt.CardLayout;
 import java.awt.Color;
 import java.awt.Font;
 import java.awt.event.MouseAdapter;
@@ -18,7 +17,6 @@ import java.util.Map;
 import java.util.logging.Logger;
 import javax.swing.JButton;
 import javax.swing.JPanel;
-import javax.swing.UIManager;
 import javax.swing.BorderFactory;
 
 /**

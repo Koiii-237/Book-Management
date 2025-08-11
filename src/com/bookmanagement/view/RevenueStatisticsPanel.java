@@ -164,72 +164,253 @@ public class RevenueStatisticsPanel extends javax.swing.JPanel {
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
 
-        lblTitle = new javax.swing.JLabel();
-        pnChart = new javax.swing.JPanel();
-        pnTable = new javax.swing.JPanel();
-        jScrollPane2 = new javax.swing.JScrollPane();
-        tblRevenue = new javax.swing.JTable();
+        pnFilter = new javax.swing.JPanel();
+        jLabel1 = new javax.swing.JLabel();
+        jLabel2 = new javax.swing.JLabel();
+        jLabel3 = new javax.swing.JLabel();
+        jLabel4 = new javax.swing.JLabel();
+        txtFrom = new javax.swing.JFormattedTextField();
+        txtArrive = new javax.swing.JFormattedTextField();
+        cbxCategory = new javax.swing.JComboBox<>();
+        btnView = new javax.swing.JButton();
+        btnRefresh = new javax.swing.JButton();
+        pnSummary = new javax.swing.JPanel();
+        jLabel5 = new javax.swing.JLabel();
+        lblTotalRevenue = new javax.swing.JLabel();
+        jLabel7 = new javax.swing.JLabel();
+        lblTotalDiscount = new javax.swing.JLabel();
+        jLabel9 = new javax.swing.JLabel();
+        lblNetProfit = new javax.swing.JLabel();
+        tabbedPaneCharts = new javax.swing.JTabbedPane();
+        pnBookChart = new javax.swing.JPanel();
+        pnCategoryChart = new javax.swing.JPanel();
+        pnMonthlyChart = new javax.swing.JPanel();
+        jScrollPane1 = new javax.swing.JScrollPane();
+        tblRevenueDetail = new javax.swing.JTable();
 
-        setBackground(new java.awt.Color(241, 245, 249));
+        setBackground(new java.awt.Color(204, 204, 204));
         setBorder(javax.swing.BorderFactory.createEmptyBorder(20, 20, 20, 20));
-        setLayout(new java.awt.BorderLayout());
 
-        lblTitle.setFont(new java.awt.Font("Arial", 1, 24)); // NOI18N
-        lblTitle.setForeground(new java.awt.Color(30, 41, 59));
-        lblTitle.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        lblTitle.setText("Statistics of revenue in 2025");
-        add(lblTitle, java.awt.BorderLayout.PAGE_START);
+        jLabel1.setText("Filter over time:");
 
-        pnChart.setBackground(new java.awt.Color(255, 255, 255));
-        pnChart.setBorder(javax.swing.BorderFactory.createEmptyBorder(20, 20, 20, 20));
-        pnChart.setPreferredSize(new java.awt.Dimension(0, 400));
+        jLabel2.setText("From");
 
-        javax.swing.GroupLayout pnChartLayout = new javax.swing.GroupLayout(pnChart);
-        pnChart.setLayout(pnChartLayout);
-        pnChartLayout.setHorizontalGroup(
-            pnChartLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 634, Short.MAX_VALUE)
+        jLabel3.setText("Arrive:");
+
+        jLabel4.setText("Category:");
+
+        cbxCategory.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "Item 1", "Item 2", "Item 3", "Item 4" }));
+
+        btnView.setText("SEE");
+
+        btnRefresh.setText("REFRESH");
+
+        javax.swing.GroupLayout pnFilterLayout = new javax.swing.GroupLayout(pnFilter);
+        pnFilter.setLayout(pnFilterLayout);
+        pnFilterLayout.setHorizontalGroup(
+            pnFilterLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(pnFilterLayout.createSequentialGroup()
+                .addGap(44, 44, 44)
+                .addGroup(pnFilterLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(pnFilterLayout.createSequentialGroup()
+                        .addComponent(jLabel2)
+                        .addGap(18, 18, 18)
+                        .addComponent(txtFrom, javax.swing.GroupLayout.PREFERRED_SIZE, 395, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addGap(26, 26, 26)
+                        .addComponent(jLabel3)
+                        .addGap(18, 18, 18)
+                        .addComponent(txtArrive, javax.swing.GroupLayout.PREFERRED_SIZE, 395, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                    .addGroup(pnFilterLayout.createSequentialGroup()
+                        .addGroup(pnFilterLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addGroup(pnFilterLayout.createSequentialGroup()
+                                .addComponent(btnView)
+                                .addGap(18, 18, 18)
+                                .addComponent(btnRefresh))
+                            .addGroup(pnFilterLayout.createSequentialGroup()
+                                .addComponent(jLabel4)
+                                .addGap(18, 18, 18)
+                                .addComponent(cbxCategory, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                            .addComponent(jLabel1))
+                        .addGap(0, 0, Short.MAX_VALUE))))
         );
-        pnChartLayout.setVerticalGroup(
-            pnChartLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 262, Short.MAX_VALUE)
+        pnFilterLayout.setVerticalGroup(
+            pnFilterLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(pnFilterLayout.createSequentialGroup()
+                .addGap(11, 11, 11)
+                .addComponent(jLabel1)
+                .addGap(18, 18, 18)
+                .addGroup(pnFilterLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(jLabel2)
+                    .addComponent(jLabel3)
+                    .addComponent(txtFrom, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(txtArrive, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addGap(18, 18, 18)
+                .addGroup(pnFilterLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(jLabel4)
+                    .addComponent(cbxCategory, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addGroup(pnFilterLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(btnView)
+                    .addComponent(btnRefresh))
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
 
-        add(pnChart, java.awt.BorderLayout.CENTER);
+        jLabel5.setText("Total revenue:");
 
-        pnTable.setBackground(new java.awt.Color(241, 245, 249));
-        pnTable.setBorder(javax.swing.BorderFactory.createTitledBorder(null, "Details of monthly revenue", javax.swing.border.TitledBorder.DEFAULT_JUSTIFICATION, javax.swing.border.TitledBorder.DEFAULT_POSITION, new java.awt.Font("Segoe UI", 1, 12), new java.awt.Color(0, 0, 0))); // NOI18N
-        pnTable.setPreferredSize(new java.awt.Dimension(0, 250));
-        pnTable.setLayout(new java.awt.BorderLayout());
+        lblTotalRevenue.setText("0 VND");
 
-        tblRevenue.setBackground(new java.awt.Color(204, 204, 204));
-        tblRevenue.setModel(new javax.swing.table.DefaultTableModel(
+        jLabel7.setText("Total discount: ");
+
+        lblTotalDiscount.setText("0 VND");
+
+        jLabel9.setText("Net profit:");
+
+        lblNetProfit.setText("0 VND");
+
+        javax.swing.GroupLayout pnSummaryLayout = new javax.swing.GroupLayout(pnSummary);
+        pnSummary.setLayout(pnSummaryLayout);
+        pnSummaryLayout.setHorizontalGroup(
+            pnSummaryLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(pnSummaryLayout.createSequentialGroup()
+                .addGap(73, 73, 73)
+                .addGroup(pnSummaryLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(jLabel7)
+                    .addComponent(jLabel9)
+                    .addComponent(jLabel5))
+                .addGap(115, 115, 115)
+                .addGroup(pnSummaryLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(lblTotalRevenue)
+                    .addComponent(lblTotalDiscount)
+                    .addComponent(lblNetProfit))
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+        );
+        pnSummaryLayout.setVerticalGroup(
+            pnSummaryLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(pnSummaryLayout.createSequentialGroup()
+                .addGap(18, 18, 18)
+                .addGroup(pnSummaryLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(jLabel5)
+                    .addComponent(lblTotalRevenue))
+                .addGap(34, 34, 34)
+                .addGroup(pnSummaryLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(jLabel7)
+                    .addComponent(lblTotalDiscount))
+                .addGap(29, 29, 29)
+                .addGroup(pnSummaryLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(jLabel9)
+                    .addComponent(lblNetProfit))
+                .addContainerGap(60, Short.MAX_VALUE))
+        );
+
+        tabbedPaneCharts.setBackground(new java.awt.Color(51, 51, 51));
+
+        javax.swing.GroupLayout pnBookChartLayout = new javax.swing.GroupLayout(pnBookChart);
+        pnBookChart.setLayout(pnBookChartLayout);
+        pnBookChartLayout.setHorizontalGroup(
+            pnBookChartLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGap(0, 1100, Short.MAX_VALUE)
+        );
+        pnBookChartLayout.setVerticalGroup(
+            pnBookChartLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGap(0, 234, Short.MAX_VALUE)
+        );
+
+        tabbedPaneCharts.addTab("Book Revenue", pnBookChart);
+
+        javax.swing.GroupLayout pnCategoryChartLayout = new javax.swing.GroupLayout(pnCategoryChart);
+        pnCategoryChart.setLayout(pnCategoryChartLayout);
+        pnCategoryChartLayout.setHorizontalGroup(
+            pnCategoryChartLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGap(0, 1100, Short.MAX_VALUE)
+        );
+        pnCategoryChartLayout.setVerticalGroup(
+            pnCategoryChartLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGap(0, 234, Short.MAX_VALUE)
+        );
+
+        tabbedPaneCharts.addTab("Category Revenue", pnCategoryChart);
+
+        javax.swing.GroupLayout pnMonthlyChartLayout = new javax.swing.GroupLayout(pnMonthlyChart);
+        pnMonthlyChart.setLayout(pnMonthlyChartLayout);
+        pnMonthlyChartLayout.setHorizontalGroup(
+            pnMonthlyChartLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGap(0, 1100, Short.MAX_VALUE)
+        );
+        pnMonthlyChartLayout.setVerticalGroup(
+            pnMonthlyChartLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGap(0, 234, Short.MAX_VALUE)
+        );
+
+        tabbedPaneCharts.addTab("Monthly Revenue", pnMonthlyChart);
+
+        tblRevenueDetail.setModel(new javax.swing.table.DefaultTableModel(
             new Object [][] {
-                {null, null},
-                {null, null},
-                {null, null},
-                {null, null}
+                {null, null, null, null, null, null, null},
+                {null, null, null, null, null, null, null},
+                {null, null, null, null, null, null, null},
+                {null, null, null, null, null, null, null}
             },
             new String [] {
-                "Month", "Revenue"
+                "STT", "Transaction Code", "Book Code", "Book Name", "Category", "Quantity", "Coin"
             }
         ));
-        tblRevenue.setFillsViewportHeight(true);
-        tblRevenue.setRowHeight(30);
-        tblRevenue.setShowGrid(true);
-        jScrollPane2.setViewportView(tblRevenue);
+        jScrollPane1.setViewportView(tblRevenueDetail);
 
-        pnTable.add(jScrollPane2, java.awt.BorderLayout.CENTER);
-
-        add(pnTable, java.awt.BorderLayout.SOUTH);
+        javax.swing.GroupLayout layout = new javax.swing.GroupLayout(this);
+        this.setLayout(layout);
+        layout.setHorizontalGroup(
+            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(layout.createSequentialGroup()
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(jScrollPane1, javax.swing.GroupLayout.Alignment.TRAILING)
+                    .addGroup(layout.createSequentialGroup()
+                        .addContainerGap()
+                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addComponent(pnFilter, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                            .addComponent(pnSummary, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                            .addComponent(tabbedPaneCharts))))
+                .addContainerGap())
+        );
+        layout.setVerticalGroup(
+            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(layout.createSequentialGroup()
+                .addContainerGap()
+                .addComponent(pnFilter, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(18, 18, 18)
+                .addComponent(pnSummary, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(18, 18, 18)
+                .addComponent(tabbedPaneCharts, javax.swing.GroupLayout.PREFERRED_SIZE, 269, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(26, 26, 26)
+                .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+        );
     }// </editor-fold>//GEN-END:initComponents
 
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
-    private javax.swing.JScrollPane jScrollPane2;
-    private javax.swing.JLabel lblTitle;
-    private javax.swing.JPanel pnChart;
-    private javax.swing.JPanel pnTable;
-    private javax.swing.JTable tblRevenue;
+    private javax.swing.JButton btnRefresh;
+    private javax.swing.JButton btnView;
+    private javax.swing.JComboBox<String> cbxCategory;
+    private javax.swing.JLabel jLabel1;
+    private javax.swing.JLabel jLabel2;
+    private javax.swing.JLabel jLabel3;
+    private javax.swing.JLabel jLabel4;
+    private javax.swing.JLabel jLabel5;
+    private javax.swing.JLabel jLabel7;
+    private javax.swing.JLabel jLabel9;
+    private javax.swing.JScrollPane jScrollPane1;
+    private javax.swing.JLabel lblNetProfit;
+    private javax.swing.JLabel lblTotalDiscount;
+    private javax.swing.JLabel lblTotalRevenue;
+    private javax.swing.JPanel pnBookChart;
+    private javax.swing.JPanel pnCategoryChart;
+    private javax.swing.JPanel pnFilter;
+    private javax.swing.JPanel pnMonthlyChart;
+    private javax.swing.JPanel pnSummary;
+    private javax.swing.JTabbedPane tabbedPaneCharts;
+    private javax.swing.JTable tblRevenueDetail;
+    private javax.swing.JFormattedTextField txtArrive;
+    private javax.swing.JFormattedTextField txtFrom;
     // End of variables declaration//GEN-END:variables
 }
