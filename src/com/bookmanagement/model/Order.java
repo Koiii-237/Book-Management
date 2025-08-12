@@ -84,4 +84,31 @@ public class Order {
     public void setPromotionId(Integer promotionId) {
         this.promotionId = promotionId;
     }
+    
+    public BigDecimal getActualAmount() {
+        if (totalAmount != null && totalDiscount != null) {
+            return totalAmount.subtract(totalDiscount);
+        }
+        return BigDecimal.ZERO;
+    }
+    
+    public void setActualAmount(BigDecimal actualAmount) {
+        if (totalAmount != null && actualAmount != null) {
+            this.totalDiscount = totalAmount.subtract(actualAmount);
+        } else {
+            this.totalDiscount = BigDecimal.ZERO;
+        }
+    }
+    
+    public BigDecimal getTotalRevenue() {
+        // Tránh lỗi NullPointerException nếu các trường chưa được khởi tạo
+        if (totalAmount == null) {
+            totalAmount = BigDecimal.ZERO;
+        }
+        if (totalDiscount == null) {
+            totalDiscount = BigDecimal.ZERO;
+        }
+        return totalAmount.subtract(totalDiscount);
+    }
+    
 }

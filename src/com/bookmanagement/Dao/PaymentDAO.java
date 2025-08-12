@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 public class PaymentDAO {
     private static final Logger LOGGER = Logger.getLogger(PaymentDAO.class.getName());
@@ -56,6 +57,17 @@ public class PaymentDAO {
             LOGGER.log(Level.SEVERE, "Lỗi khi thêm thanh toán cho đơn hàng ID: " + payment.getOrderId(), e);
         }
         return false;
+    }
+    
+    public boolean createPayment(int orderId, BigDecimal amount, String paymentMethod) {
+        Payment newPayment = new Payment();
+        newPayment.setOrderId(orderId);
+        newPayment.setAmount(amount);
+        newPayment.setPaymentMethod(paymentMethod);
+        newPayment.setPaymentDate(LocalDateTime.now());
+        newPayment.setStatus("Hoàn tất"); // Đặt trạng thái mặc định
+
+        return addPayment(newPayment);
     }
 
     /**

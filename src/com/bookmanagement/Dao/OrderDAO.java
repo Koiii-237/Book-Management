@@ -17,6 +17,8 @@ import java.util.Set;
 import java.util.logging.Logger;
 import java.util.logging.Level;
 import java.sql.Date; // Import java.sql.Date
+import java.time.LocalDate;
+import java.sql.Timestamp;
 
 /**
  * Lớp DAO để thao tác với bảng DonHang.
@@ -58,6 +60,27 @@ public class OrderDAO {
             LOGGER.log(Level.SEVERE, "Lỗi khi thêm đơn hàng mới.", e);
             return false;
         }
+    }
+    
+    public List<Order> getOrdersByDateRange(LocalDate startDate, LocalDate endDate) throws SQLException {
+        List<Order> orders = new ArrayList<>();
+        String sql = "SELECT * FROM dbo.orders WHERE order_date BETWEEN ? AND ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            
+            stmt.setTimestamp(1, Timestamp.valueOf(startDate.atStartOfDay()));
+            stmt.setTimestamp(2, Timestamp.valueOf(endDate.atTime(23, 59, 59)));
+            
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    orders.add(mapOrderFromResultSet(rs));
+                }
+            }
+        } catch (SQLException ex) {
+            LOGGER.log(Level.SEVERE, "Lỗi khi lấy danh sách đơn hàng theo ngày", ex);
+            throw ex;
+        }
+        return orders;
     }
 
     /**
@@ -185,7 +208,73 @@ public class OrderDAO {
         }
         return orders;
     }
+    
+    
+    public boolean updateOrderStatus(int orderId, String newStatus) {
+        String sql = "UPDATE dbo.orders SET status = ? WHERE order_id = ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
 
+            stmt.setString(1, newStatus);
+            stmt.setInt(2, orderId);
+
+            int affectedRows = stmt.executeUpdate();
+            return affectedRows > 0;
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Lỗi khi cập nhật trạng thái đơn hàng có ID: " + orderId, e);
+        }
+        return false;
+    }
+    
+    public List<Order> getOrderByStatus(String status) {
+        List<Order> orders = new ArrayList<>();
+        String sql = "SELECT * FROM dbo.orders WHERE status = ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            
+            stmt.setString(1, status);
+            
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    orders.add(mapOrderFromResultSet(rs));
+                }
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Lỗi khi lấy đơn hàng theo trạng thái: " + status, e);
+        }
+        return orders;
+    }
+    
+    
+    public List<Order> findOrdersBySearchText(String searchText) throws SQLException {
+        List<Order> orders = new ArrayList<>();
+        String sql = "SELECT * FROM dbo.orders WHERE order_id = ? OR status LIKE ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            
+            // Try to parse the search text as an integer for order_id
+            try {
+                int orderId = Integer.parseInt(searchText);
+                stmt.setInt(1, orderId);
+            } catch (NumberFormatException e) {
+                // If it's not an integer, set the order_id to a value that won't match anything
+                stmt.setInt(1, -1);
+            }
+            
+            stmt.setString(2, "%" + searchText + "%");
+            
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    orders.add(mapOrderFromResultSet(rs));
+                }
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Lỗi khi tìm kiếm đơn hàng: " + searchText, e);
+            throw e;
+        }
+        return orders;
+    }
+    
     /**
      * Phương thức trợ giúp để ánh xạ một ResultSet thành một đối tượng Order.
      *

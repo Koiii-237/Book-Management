@@ -4,18 +4,196 @@
  */
 package com.bookmanagement.view;
 
+import com.bookmanagement.Dao.PromotionDAO;
+import com.bookmanagement.model.Promotion;
+import java.awt.Frame;
+import java.awt.event.ActionEvent;
+import java.sql.SQLException;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import javax.swing.JOptionPane;
+import javax.swing.SwingUtilities;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
+import javax.swing.table.DefaultTableModel;
+
 /**
  *
  * @author ADMIN
  */
 public class PromotionPanel extends javax.swing.JPanel {
 
+    private static final Logger LOGGER = Logger.getLogger(PromotionPanel.class.getName());
+    private PromotionDAO promotionDAO;
+    private DefaultTableModel tableModel;
+    private List<Promotion> allPromotions;
+
     /**
      * Creates new form PromotionPanel
      */
     public PromotionPanel() {
         initComponents();
+        promotionDAO = new PromotionDAO();
+        allPromotions = new ArrayList<>();
+
+        // Set up the table model with column names.
+        String[] columnNames = {"ID", "Code", "Discount Percentage", "Start Date", "End Date", "Status"};
+        tableModel = new DefaultTableModel(columnNames, 0) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                // Prevents direct editing of cells in the table
+                return false;
+            }
+        };
+        tblPromotion.setModel(tableModel);
+        loadPromotions();
+        setupEventListeners();
     }
+    
+    private void loadPromotions() {
+        // Automatically update the status of expired promotions before loading
+        promotionDAO.autoUpdatePromotionStatus();
+        allPromotions = promotionDAO.getAllPromotions();
+        displayPromotions(allPromotions);
+    }
+    
+    private void displayPromotions(List<Promotion> promotions) {
+        tableModel.setRowCount(0); // Clear all existing rows
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+        for (Promotion promo : promotions) {
+            Object[] row = new Object[6];
+            row[0] = promo.getPromotionId();
+            row[1] = promo.getCode();
+            row[2] = promo.getDiscountPercentage();
+            row[3] = promo.getStartDate().format(formatter);
+            row[4] = promo.getEndDate().format(formatter);
+            row[5] = promo.isActive() ? "Active" : "Inactive";
+            tableModel.addRow(row);
+        }
+    }
+    
+    private void setupEventListeners() {
+        btnAdd.addActionListener(this::handleAddAction);
+        btnUpdate.addActionListener(this::handleUpdateAction);
+        btnDelete.addActionListener(this::handleDeleteAction);
+        btnRefresh.addActionListener(this::handleRefreshAction);
+        btnSearch.addActionListener(this::handleSearchAction);
+
+        // Add a DocumentListener to the search field for real-time filtering
+        txtSearch.getDocument().addDocumentListener(new DocumentListener() {
+            @Override
+            public void insertUpdate(DocumentEvent e) {
+                filterPromotions();
+            }
+
+            @Override
+            public void removeUpdate(DocumentEvent e) {
+                filterPromotions();
+            }
+
+            @Override
+            public void changedUpdate(DocumentEvent e) {
+                filterPromotions();
+            }
+        });
+    }
+
+    /**
+     * Loads the initial data from the database and populates the table.
+     */
+
+    private void filterPromotions() {
+        String searchTerm = txtSearch.getText().trim().toLowerCase();
+        if (searchTerm.isEmpty()) {
+            displayPromotions(allPromotions);
+        } else {
+            List<Promotion> filteredList = new ArrayList<>();
+            for (Promotion promo : allPromotions) {
+                if (String.valueOf(promo.getPromotionId()).contains(searchTerm)
+                        || promo.getCode().toLowerCase().contains(searchTerm)
+                        || String.valueOf(promo.getDiscountPercentage()).contains(searchTerm)
+                        || promo.getStartDate().toString().contains(searchTerm)
+                        || promo.getEndDate().toString().contains(searchTerm)) {
+                    filteredList.add(promo);
+                }
+            }
+            displayPromotions(filteredList);
+        }
+    }
+
+    private void handleAddAction(ActionEvent evt) {
+        Frame parentFrame = (Frame) SwingUtilities.getWindowAncestor(this);
+        PromotionDialog dialog = new PromotionDialog(parentFrame, true, null);
+        dialog.setVisible(true);
+        if (dialog.isDataSaved()) {
+            loadPromotions();
+        }
+    }
+
+    /**
+     * Handles the "Update" button click event. Opens a dialog for editing the
+     * selected promotion.
+     */
+    private void handleUpdateAction(ActionEvent evt) {
+        int selectedRow = tblPromotion.getSelectedRow();
+
+        if (selectedRow == -1) {
+            JOptionPane.showMessageDialog(this, "Please select a promotion to edit.", "Warning", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        int promotionId = (int) tableModel.getValueAt(selectedRow, 0);
+        Promotion selectedPromotion = promotionDAO.getPromotionById(promotionId);
+        if (selectedPromotion != null) {
+            Frame parentFrame = (Frame) SwingUtilities.getWindowAncestor(this);
+            PromotionDialog dialog = new PromotionDialog(parentFrame, true, selectedPromotion);
+            dialog.setVisible(true);
+            if (dialog.isDataSaved()) {
+                loadPromotions();
+            }
+        } else {
+            JOptionPane.showMessageDialog(this, "Promotion not found in the database.", "Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private void handleDeleteAction(ActionEvent evt) {
+        int selectedRow = tblPromotion.getSelectedRow();
+
+        if (selectedRow == -1) {
+            JOptionPane.showMessageDialog(this, "Please select a promotion to delete.", "Warning", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        int confirm = JOptionPane.showConfirmDialog(this, "Are you sure you want to delete this promotion?", "Confirm Delete", JOptionPane.YES_NO_OPTION);
+
+        if (confirm == JOptionPane.YES_OPTION) {
+            int promotionId = (int) tableModel.getValueAt(selectedRow, 0);
+            if (promotionDAO.deletePromotion(promotionId)) {
+                JOptionPane.showMessageDialog(this, "Promotion deleted successfully!", "Success", JOptionPane.INFORMATION_MESSAGE);
+                loadPromotions();
+            } else {
+                JOptionPane.showMessageDialog(this, "Could not delete promotion.", "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        }
+    }
+
+    private void handleRefreshAction(ActionEvent evt) {
+        txtSearch.setText("");
+        loadPromotions();
+    }
+
+    /**
+     * Handles the action when the "Search" button is clicked.
+     */
+    private void handleSearchAction(ActionEvent evt) {
+        // The search function is handled by the DocumentListener,
+        // this button just re-triggers the filter
+        filterPromotions();
+    }
+
 
     /**
      * This method is called from within the constructor to initialize the form.
@@ -39,11 +217,16 @@ public class PromotionPanel extends javax.swing.JPanel {
         spPromotion = new javax.swing.JScrollPane();
         tblPromotion = new javax.swing.JTable();
 
-        setLayout(new java.awt.BorderLayout());
+        setBorder(javax.swing.BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        setLayout(new java.awt.BorderLayout(10, 10));
 
         lblTitle.setFont(new java.awt.Font("Arial", 1, 24)); // NOI18N
-        lblTitle.setText("PROMOTION MANAGEMENT PANEL");
-        add(lblTitle, java.awt.BorderLayout.PAGE_START);
+        lblTitle.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+        lblTitle.setText("PROMOTION MANAGEMENT");
+        add(lblTitle, java.awt.BorderLayout.NORTH);
+
+        pnToolbar.setBorder(javax.swing.BorderFactory.createTitledBorder("Toolbar"));
+        pnToolbar.setLayout(new java.awt.FlowLayout(java.awt.FlowLayout.LEFT));
 
         lblSearch.setText("Search: ");
         pnToolbar.add(lblSearch);
@@ -99,7 +282,7 @@ public class PromotionPanel extends javax.swing.JPanel {
         });
         pnToolbar.add(btnRefresh);
 
-        add(pnToolbar, java.awt.BorderLayout.SOUTH);
+        add(pnToolbar, java.awt.BorderLayout.CENTER);
 
         tblPromotion.setModel(new javax.swing.table.DefaultTableModel(
             new Object [][] {
@@ -114,7 +297,7 @@ public class PromotionPanel extends javax.swing.JPanel {
         ));
         spPromotion.setViewportView(tblPromotion);
 
-        add(spPromotion, java.awt.BorderLayout.CENTER);
+        add(spPromotion, java.awt.BorderLayout.PAGE_END);
     }// </editor-fold>//GEN-END:initComponents
 
     private void txtSearchActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_txtSearchActionPerformed
@@ -122,7 +305,7 @@ public class PromotionPanel extends javax.swing.JPanel {
     }//GEN-LAST:event_txtSearchActionPerformed
 
     private void btnSearchActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnSearchActionPerformed
-        
+
     }//GEN-LAST:event_btnSearchActionPerformed
 
     private void btnAddActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnAddActionPerformed

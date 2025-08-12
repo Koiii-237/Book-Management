@@ -120,23 +120,29 @@ public class OrderItemDAO {
      * @param orderId ID của đơn hàng.
      * @return Một danh sách các đối tượng OrderItem.
      */
-    public List<OrderItem> getOrderItemsByOrderId(int orderId) {
-        List<OrderItem> orderItems = new ArrayList<>();
+    public List<OrderItem> getOrderItemsByOrderId(int orderId) throws SQLException {
+        List<OrderItem> items = new ArrayList<>();
         String sql = "SELECT * FROM dbo.order_items WHERE order_id = ?";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
-
+            
             stmt.setInt(1, orderId);
-
+            
             try (ResultSet rs = stmt.executeQuery()) {
                 while (rs.next()) {
-                    orderItems.add(mapOrderItemFromResultSet(rs));
+                    OrderItem item = new OrderItem();
+                    item.setOrderItemId(rs.getInt("order_item_id"));
+                    item.setOrderId(rs.getInt("order_id"));
+                    item.setBookId(rs.getInt("book_id"));
+                    item.setQuantity(rs.getInt("quantity"));
+                    items.add(item);
                 }
             }
-        } catch (SQLException e) {
-            LOGGER.log(Level.SEVERE, "Lỗi khi lấy các mục đơn hàng cho order ID: " + orderId, e);
+        } catch (SQLException ex) {
+            LOGGER.log(Level.SEVERE, "Lỗi khi lấy chi tiết đơn hàng", ex);
+            throw ex;
         }
-        return orderItems;
+        return items;
     }
 
     /**

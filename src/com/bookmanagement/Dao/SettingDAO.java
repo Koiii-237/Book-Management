@@ -130,7 +130,25 @@ public class SettingDAO {
         }
         return settings;
     }
+    
+    public String getSetting(String key) {
+        String sql = "SELECT setting_value FROM dbo.settings WHERE setting_key = ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
 
+            stmt.setString(1, key);
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getString("setting_value");
+                }
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Lỗi khi lấy cài đặt với khóa: " + key, e);
+        }
+        return null;
+    }
+    
     /**
      * Ánh xạ (map) một ResultSet thành một đối tượng Setting.
      *

@@ -8,24 +8,39 @@ package com.bookmanagement.view;
  *
  * @author ADMIN
  */
+import com.bookmanagement.model.Inventory;
+import com.bookmanagement.dao.BookDAO;
 import com.bookmanagement.Dao.InventoryDAO;
 import com.bookmanagement.Dao.StockTransactionDAO;
 import com.bookmanagement.Dao.WarehouseDAO;
-import com.bookmanagement.dao.BookDAO;
-import com.bookmanagement.model.Inventory;
 import com.bookmanagement.model.StockTransaction;
-import javax.swing.JOptionPane;
-import javax.swing.table.DefaultTableModel;
 import java.awt.Frame;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.swing.JFileChooser;
+import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
+import javax.swing.filechooser.FileNameExtensionFilter;
+import javax.swing.table.DefaultTableModel;
+
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
 /**
  * Lớp JPanel để quản lý thông tin tồn kho sách. Bao gồm các chức năng: hiển thị
@@ -210,68 +225,121 @@ public class InventoryManagementPanel extends javax.swing.JPanel {
         refreshTableWithData(filteredList);
     }
 
-    private void handleImportInventory() {
-        int selectedRow = tblInventory.getSelectedRow();
-        if (selectedRow != -1) {
-            int bookId = (int) tableModel.getValueAt(selectedRow, 1);
-            int warehouseId = (int) tableModel.getValueAt(selectedRow, 3);
-            int currentQuantity = (int) tableModel.getValueAt(selectedRow, 5);
+    private void handleImportExcel() {
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setDialogTitle("Chọn file Excel để nhập kho");
+        fileChooser.setFileFilter(new FileNameExtensionFilter("Excel files (*.xlsx)", "xlsx"));
+        int userSelection = fileChooser.showOpenDialog(this);
 
-            String input = JOptionPane.showInputDialog(this, "Enter the quantity to add:", "Import Stock", JOptionPane.QUESTION_MESSAGE);
-            if (input != null && !input.isEmpty()) {
-                try {
-                    int quantityToAdd = Integer.parseInt(input);
-                    if (quantityToAdd <= 0) {
-                        JOptionPane.showMessageDialog(this, "Quantity must be a positive number.", "Error", JOptionPane.ERROR_MESSAGE);
-                        return;
-                    }
+        if (userSelection == JFileChooser.APPROVE_OPTION) {
+            File fileToImport = fileChooser.getSelectedFile();
+            int successCount = 0;
+            int failCount = 0;
 
-                    if (inventoryDAO.updateInventoryQuantity(bookId, warehouseId, quantityToAdd)) {
-                        JOptionPane.showMessageDialog(this, "Stock imported successfully. New quantity is: " + (currentQuantity + quantityToAdd), "Success", JOptionPane.INFORMATION_MESSAGE);
-                        fillToTable();
-                    } else {
-                        JOptionPane.showMessageDialog(this, "Failed to import stock. The inventory record may not exist.", "Error", JOptionPane.ERROR_MESSAGE);
+            try (FileInputStream fis = new FileInputStream(fileToImport);
+                 Workbook workbook = new XSSFWorkbook(fis)) {
+                
+                Sheet sheet = workbook.getSheetAt(0); // Lấy sheet đầu tiên
+                
+                // Bỏ qua hàng tiêu đề
+                for (int i = 1; i <= sheet.getLastRowNum(); i++) {
+                    Row row = sheet.getRow(i);
+                    if (row == null) {
+                        continue;
                     }
-                } catch (NumberFormatException e) {
-                    JOptionPane.showMessageDialog(this, "Please enter a valid number.", "Error", JOptionPane.ERROR_MESSAGE);
+                    
+                    try {
+                        int bookId = (int) row.getCell(1).getNumericCellValue(); // Cột bookId
+                        int warehouseId = (int) row.getCell(3).getNumericCellValue(); // Cột warehouseId
+                        int quantity = (int) row.getCell(5).getNumericCellValue(); // Cột quantity
+                        
+                        // Kiểm tra sự tồn tại của sách và kho trước khi nhập
+                        if (bookDAO.getBookById(bookId) != null && warehouseDAO.getWarehouseById(warehouseId) != null) {
+                            if (inventoryDAO.updateOrCreateInventory(bookId, warehouseId, quantity)) {
+                                successCount++;
+                            } else {
+                                failCount++;
+                            }
+                        } else {
+                            failCount++;
+                            LOGGER.log(Level.WARNING, "Không tìm thấy Sách hoặc Kho với ID: sách=" + bookId + ", kho=" + warehouseId);
+                        }
+                    } catch (IllegalStateException | NumberFormatException | SQLException e) {
+                        failCount++;
+                        LOGGER.log(Level.SEVERE, "Lỗi khi xử lý dữ liệu từ hàng " + (i + 1) + " trong file Excel", e);
+                    }
                 }
+                
+                JOptionPane.showMessageDialog(this, 
+                    "Nhập kho từ file Excel hoàn tất.\n" +
+                    "Thành công: " + successCount + " bản ghi.\n" +
+                    "Thất bại: " + failCount + " bản ghi.", 
+                    "Thông báo", 
+                    JOptionPane.INFORMATION_MESSAGE);
+                
+                fillToTable(); // Cập nhật lại bảng
+                
+            } catch (IOException e) {
+                LOGGER.log(Level.SEVERE, "Lỗi khi đọc file Excel", e);
+                JOptionPane.showMessageDialog(this, "Lỗi khi đọc file: " + e.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
             }
         }
     }
-
+    
     /**
-     * Handles the stock export function.
+     * Xử lý chức năng xuất kho ra file Excel.
      */
-    private void handleExportInventory() {
-        int selectedRow = tblInventory.getSelectedRow();
-        if (selectedRow != -1) {
-            int bookId = (int) tableModel.getValueAt(selectedRow, 1);
-            int warehouseId = (int) tableModel.getValueAt(selectedRow, 3);
-            int currentQuantity = (int) tableModel.getValueAt(selectedRow, 5);
+    private void handleExportExcel() {
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setDialogTitle("Lưu file Excel tồn kho");
+        fileChooser.setFileFilter(new FileNameExtensionFilter("Excel files (*.xlsx)", "xlsx"));
+        int userSelection = fileChooser.showSaveDialog(this);
 
-            String input = JOptionPane.showInputDialog(this, "Enter the quantity to export:", "Export Stock", JOptionPane.QUESTION_MESSAGE);
-            if (input != null && !input.isEmpty()) {
-                try {
-                    int quantityToExport = Integer.parseInt(input);
-                    if (quantityToExport <= 0) {
-                        JOptionPane.showMessageDialog(this, "Quantity must be a positive number.", "Error", JOptionPane.ERROR_MESSAGE);
-                        return;
-                    }
+        if (userSelection == JFileChooser.APPROVE_OPTION) {
+            File fileToSave = fileChooser.getSelectedFile();
+            if (!fileToSave.getName().toLowerCase().endsWith(".xlsx")) {
+                fileToSave = new File(fileToSave.toString() + ".xlsx");
+            }
 
-                    if (quantityToExport > currentQuantity) {
-                        JOptionPane.showMessageDialog(this, "Export quantity cannot be greater than the current stock (" + currentQuantity + ").", "Error", JOptionPane.ERROR_MESSAGE);
-                        return;
-                    }
-
-                    if (inventoryDAO.updateInventoryQuantity(bookId, warehouseId, -quantityToExport)) {
-                        JOptionPane.showMessageDialog(this, "Stock exported successfully. New quantity is: " + (currentQuantity - quantityToExport), "Success", JOptionPane.INFORMATION_MESSAGE);
-                        fillToTable();
-                    } else {
-                        JOptionPane.showMessageDialog(this, "Failed to export stock. Insufficient stock or a database error occurred.", "Error", JOptionPane.ERROR_MESSAGE);
-                    }
-                } catch (NumberFormatException e) {
-                    JOptionPane.showMessageDialog(this, "Please enter a valid number.", "Error", JOptionPane.ERROR_MESSAGE);
+            try (FileOutputStream fos = new FileOutputStream(fileToSave);
+                 Workbook workbook = new XSSFWorkbook()) {
+                
+                Sheet sheet = workbook.createSheet("Inventory");
+                
+                // Tạo hàng tiêu đề
+                Row headerRow = sheet.createRow(0);
+                for (int i = 0; i < tableModel.getColumnCount(); i++) {
+                    Cell cell = headerRow.createCell(i);
+                    cell.setCellValue(tableModel.getColumnName(i));
                 }
+                
+                // Ghi dữ liệu từ tableModel vào sheet
+                for (int i = 0; i < tableModel.getRowCount(); i++) {
+                    Row dataRow = sheet.createRow(i + 1);
+                    for (int j = 0; j < tableModel.getColumnCount(); j++) {
+                        Cell cell = dataRow.createCell(j);
+                        Object value = tableModel.getValueAt(i, j);
+                        if (value != null) {
+                            if (value instanceof Number) {
+                                cell.setCellValue(((Number) value).doubleValue());
+                            } else {
+                                cell.setCellValue(value.toString());
+                            }
+                        }
+                    }
+                }
+                
+                // Tự động điều chỉnh độ rộng các cột
+                for (int i = 0; i < tableModel.getColumnCount(); i++) {
+                    sheet.autoSizeColumn(i);
+                }
+                
+                workbook.write(fos);
+                JOptionPane.showMessageDialog(this, "Xuất dữ liệu tồn kho ra file Excel thành công.", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
+
+            } catch (IOException e) {
+                LOGGER.log(Level.SEVERE, "Lỗi khi ghi file Excel", e);
+                JOptionPane.showMessageDialog(this, "Lỗi khi ghi file: " + e.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
             }
         }
     }
@@ -451,12 +519,12 @@ public class InventoryManagementPanel extends javax.swing.JPanel {
 
     private void btnImportActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnImportActionPerformed
         // TODO add your handling code here:
-        handleImportInventory();
+        handleImportExcel();
     }//GEN-LAST:event_btnImportActionPerformed
 
     private void btnExportActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnExportActionPerformed
         // TODO add your handling code here:
-        handleExportInventory();
+        handleExportExcel();
     }//GEN-LAST:event_btnExportActionPerformed
 
     private void txtSearchKeyReleased(java.awt.event.KeyEvent evt) {//GEN-FIRST:event_txtSearchKeyReleased

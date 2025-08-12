@@ -107,7 +107,7 @@ public class CustomerManagementDialog extends javax.swing.JDialog {
     private boolean validateInput() {
         if (txtFullName.getText().trim().isEmpty() || txtEmail.getText().trim().isEmpty() || 
             txtPhoneNumber.getText().trim().isEmpty() || txtAddress.getText().trim().isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Vui lòng điền đầy đủ tất cả các trường.", "Lỗi", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Please fill out all schools.", "Lỗi", JOptionPane.ERROR_MESSAGE);
             return false;
         }
         

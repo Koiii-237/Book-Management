@@ -14,7 +14,9 @@ import java.sql.Statement;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 /**
@@ -56,6 +58,66 @@ public class UserDAO {
             LOGGER.log(Level.SEVERE, "Lỗi khi thêm người dùng mới: " + user.getUsername(), e);
             return false;
         }
+    }
+    
+    public void updatePassword(int userId, String newPassword) throws SQLException {
+        String passwordHash = newPassword; // Tạm thời lưu mật khẩu thô cho ví dụ này
+
+        String sql = "UPDATE users SET password_hash = ? WHERE user_id = ?";
+
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            
+            pstmt.setString(1, passwordHash);
+            pstmt.setInt(2, userId);
+
+            int rowsAffected = pstmt.executeUpdate();
+            if (rowsAffected == 0) {
+                // Có thể xử lý lỗi nếu không có hàng nào được cập nhật (ví dụ: userId không tồn tại)
+                throw new SQLException("Không tìm thấy người dùng có ID: " + userId + " để cập nhật mật khẩu.");
+            }
+            
+        } catch (SQLException ex) {
+            // Log lỗi chi tiết
+            System.err.println("Lỗi khi cập nhật mật khẩu cho người dùng: " + userId);
+            throw ex; // Ném lại ngoại lệ để lớp gọi có thể xử lý
+        }
+    }
+    
+    public boolean updateUserWithoutPassword(User user) throws SQLException {
+        String sql = "UPDATE NguoiDung SET TenDangNhap = ?, Email = ? WHERE MaNguoiDung = ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setString(1, user.getUsername());
+            pstmt.setString(2, user.getEmail());
+            pstmt.setInt(3, user.getUserId());
+
+            int rowsAffected = pstmt.executeUpdate();
+            return rowsAffected > 0;
+            
+        } catch (SQLException ex) {
+            LOGGER.log(Level.SEVERE, "Lỗi khi cập nhật người dùng không mật khẩu", ex);
+            throw ex;
+        }
+    }
+    
+    public boolean isUsernameExists(String username) throws SQLException {
+        String sql = "SELECT COUNT(*) FROM NguoiDung WHERE TenDangNhap = ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setString(1, username);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt(1) > 0;
+                }
+            }
+        } catch (SQLException ex) {
+            LOGGER.log(Level.SEVERE, "Lỗi khi kiểm tra tên đăng nhập", ex);
+            throw ex;
+        }
+        return false;
     }
 
     /**
@@ -224,6 +286,109 @@ public class UserDAO {
             LOGGER.log(Level.SEVERE, "Lỗi khi lấy quyền hạn của người dùng", e);
         }
         return permissions;
+    }
+    
+    public List<String> getAllSystemPermissions() throws SQLException {
+        List<String> permissions = new ArrayList<>();
+        String sql = "SELECT permission_name FROM dbo.permissions ORDER BY permission_name";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql);
+             ResultSet rs = pstmt.executeQuery()) {
+            while (rs.next()) {
+                permissions.add(rs.getString("permission_name"));
+            }
+        }
+        return permissions;
+    }
+    
+    public List<String> getPermissionsForUser(int userId) throws SQLException {
+        List<String> permissions = new ArrayList<>();
+        String sql = "SELECT p.permission_name FROM dbo.user_permissions up "
+                   + "JOIN dbo.permissions p ON up.permission_id = p.permission_id "
+                   + "WHERE up.user_id = ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, userId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    permissions.add(rs.getString("permission_name"));
+                }
+            }
+        }
+        return permissions;
+    }
+    
+    public void updatePermissions(User user) throws SQLException {
+        Connection conn = null;
+        try {
+            conn = DBConnection.getConnection();
+            conn.setAutoCommit(false); // Bắt đầu một transaction
+
+            // Bước 1: Xóa tất cả các quyền hiện có của người dùng trong bảng user_permissions
+            String deleteSql = "DELETE FROM dbo.user_permissions WHERE user_id = ?";
+            try (PreparedStatement pstmtDelete = conn.prepareStatement(deleteSql)) {
+                pstmtDelete.setInt(1, user.getUserId());
+                pstmtDelete.executeUpdate();
+            }
+
+            // Bước 2: Chuẩn bị ánh xạ từ tên quyền sang ID quyền
+            Map<String, Integer> permissionNameToIdMap = new HashMap<>();
+            String permissionIdSql = "SELECT permission_id, permission_name FROM dbo.permissions";
+            try (PreparedStatement pstmtIds = conn.prepareStatement(permissionIdSql);
+                 ResultSet rs = pstmtIds.executeQuery()) {
+                while (rs.next()) {
+                    permissionNameToIdMap.put(rs.getString("permission_name"), rs.getInt("permission_id"));
+                }
+            }
+            
+            // Bước 3: Thêm các quyền mới
+            String insertSql = "INSERT INTO dbo.user_permissions (user_id, permission_id) VALUES (?, ?)";
+            try (PreparedStatement pstmtInsert = conn.prepareStatement(insertSql)) {
+                for (String permissionName : user.getPermissions()) {
+                    Integer permissionId = permissionNameToIdMap.get(permissionName);
+                    if (permissionId != null) {
+                        pstmtInsert.setInt(1, user.getUserId());
+                        pstmtInsert.setInt(2, permissionId);
+                        pstmtInsert.addBatch(); // Thêm vào batch để thực thi hiệu quả hơn
+                    } else {
+                        LOGGER.warning("Không tìm thấy ID cho quyền: " + permissionName);
+                    }
+                }
+                pstmtInsert.executeBatch();
+            }
+
+            conn.commit(); // Hoàn tất transaction
+        } catch (SQLException e) {
+            if (conn != null) {
+                conn.rollback(); // Hoàn tác nếu có lỗi
+            }
+            LOGGER.log(Level.SEVERE, "Lỗi khi cập nhật quyền cho người dùng " + user.getUserId(), e);
+            throw e;
+        } finally {
+            if (conn != null) {
+                conn.setAutoCommit(true);
+                conn.close();
+            }
+        }
+    }
+    
+    
+    public User getAnyUser() throws SQLException {
+        String sql = "SELECT TOP 1 user_id, username, password_hash, email, created_at FROM dbo.users";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql);
+             ResultSet rs = pstmt.executeQuery()) {
+            if (rs.next()) {
+                User user = new User();
+                user.setUserId(rs.getInt("user_id"));
+                user.setUsername(rs.getString("username"));
+                user.setPasswordHash(rs.getString("password_hash"));
+                user.setEmail(rs.getString("email"));
+                user.setCreatedAt(rs.getTimestamp("created_at").toLocalDateTime());
+                return user;
+            }
+        }
+        return null;
     }
     
     /**

@@ -27,9 +27,11 @@ public class BookDAO {
      * @return true nếu thêm thành công, false nếu có lỗi xảy ra.
      */
     public boolean addBook(Book book) {
+        // Câu lệnh INSERT không bao gồm cột book_id vì nó là khóa tự động tăng
         String sql = "INSERT INTO dbo.books (title, author, isbn, price, category) VALUES (?, ?, ?, ?, ?)";
         try (Connection conn = DBConnection.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
+             // Sử dụng Statement.RETURN_GENERATED_KEYS để lấy ID vừa được tạo
+             PreparedStatement stmt = conn.prepareStatement(sql, PreparedStatement.RETURN_GENERATED_KEYS)) {
 
             stmt.setString(1, book.getTitle());
             stmt.setString(2, book.getAuthor());
@@ -37,14 +39,40 @@ public class BookDAO {
             stmt.setBigDecimal(4, book.getPrice());
             stmt.setString(5, book.getCategory());
 
-            int rowsAffected = stmt.executeUpdate();
-            return rowsAffected > 0;
+            int affectedRows = stmt.executeUpdate();
+
+            if (affectedRows > 0) {
+                // Lấy ID tự động tăng và cập nhật cho đối tượng book
+                try (ResultSet generatedKeys = stmt.getGeneratedKeys()) {
+                    if (generatedKeys.next()) {
+                        book.setBookId(generatedKeys.getInt(1));
+                    }
+                }
+                return true;
+            }
         } catch (SQLException e) {
             LOGGER.log(Level.SEVERE, "Lỗi khi thêm sách mới: " + book.getTitle(), e);
-            return false;
         }
+        return false;
     }
     
+    
+    public List<String> getAllCategories() throws SQLException {
+        List<String> categories = new ArrayList<>();
+        String sql = "SELECT DISTINCT category FROM dbo.books";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql);
+             ResultSet rs = stmt.executeQuery()) {
+            
+            while (rs.next()) {
+                categories.add(rs.getString("category"));
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Lỗi khi lấy danh mục sách", e);
+            throw e;
+        }
+        return categories;
+    }
     
     public boolean isIsbnExists(String isbn) throws SQLException {
         String sql = "SELECT COUNT(*) FROM dbo.books WHERE isbn = ?";
@@ -85,6 +113,27 @@ public class BookDAO {
             return rowsAffected > 0;
         } catch (SQLException e) {
             LOGGER.log(Level.SEVERE, "Lỗi khi cập nhật sách có ID: " + book.getBookId(), e);
+            return false;
+        }
+    }
+    
+    
+    public boolean updateBookPriceFromPromotions() {
+        // Giả định rằng có một bảng khác liên kết sách với khuyến mãi (book_promotions)
+        // và một bảng promotions để lấy discount_percentage
+        String sql = "UPDATE dbo.books "
+                   + "SET price = books.price * (1 - (SELECT TOP 1 p.discount_percentage FROM dbo.promotions p "
+                   + "JOIN dbo.book_promotions bp ON p.promotion_id = bp.promotion_id "
+                   + "WHERE bp.book_id = books.book_id AND p.is_active = 1 AND p.end_date >= GETDATE())) "
+                   + "WHERE EXISTS (SELECT 1 FROM dbo.book_promotions bp "
+                   + "JOIN dbo.promotions p ON bp.promotion_id = p.promotion_id "
+                   + "WHERE bp.book_id = books.book_id AND p.is_active = 1 AND p.end_date >= GETDATE())";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.executeUpdate();
+            return true;
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Lỗi khi cập nhật giá sách tự động từ khuyến mãi", e);
             return false;
         }
     }
@@ -182,7 +231,35 @@ public class BookDAO {
         }
         return books;
     }
+    
+    public Book getBookByOrderId(int orderId) throws SQLException {
+        // SQL để lấy book_id từ bảng order_items
+        String sqlFindBookId = "SELECT book_id FROM dbo.order_items WHERE order_id = ?";
+        int bookId = -1;
 
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement stmtFindBookId = conn.prepareStatement(sqlFindBookId)) {
+            
+            stmtFindBookId.setInt(1, orderId);
+            
+            try (ResultSet rs = stmtFindBookId.executeQuery()) {
+                if (rs.next()) {
+                    bookId = rs.getInt("book_id");
+                }
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Lỗi khi lấy book_id từ order_items với order_id: " + orderId, e);
+            throw e;
+        }
+
+        // Nếu tìm thấy book_id, gọi phương thức getBookById để lấy chi tiết sách
+        if (bookId != -1) {
+            return getBookById(bookId);
+        }
+
+        return null;
+    }
+    
     /**
      * Phương thức trợ giúp để ánh xạ một ResultSet thành một đối tượng Book.
      *

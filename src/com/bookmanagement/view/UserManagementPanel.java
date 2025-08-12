@@ -27,154 +27,119 @@ public class UserManagementPanel extends javax.swing.JPanel {
    private static final Logger LOGGER = Logger.getLogger(UserManagementPanel.class.getName());
     private UserDAO userDAO;
     private DefaultTableModel tableModel;
+    private User selectedUser;
 
     /**
      * Creates new form UserManagementPanel
      */
     public UserManagementPanel() {
         initComponents();
-        this.userDAO = new UserDAO(); // Khởi tạo UserDAO
-        initTable(); // Khởi tạo cấu trúc bảng
-        fillToTable(); // Đổ dữ liệu vào bảng
+        this.userDAO = new UserDAO();
+        initTable();
+        fillToTable();
 
         // Thêm ListSelectionListener cho bảng để kích hoạt/vô hiệu hóa các nút
         tblUser.getSelectionModel().addListSelectionListener(new ListSelectionListener() {
             @Override
             public void valueChanged(ListSelectionEvent e) {
-                if (!e.getValueIsAdjusting()) { // Đảm bảo sự kiện chỉ kích hoạt một lần khi chọn xong
-                    updateButtonStates();
+                if (!e.getValueIsAdjusting()) {
+                    int selectedRow = tblUser.getSelectedRow();
+                    boolean rowSelected = selectedRow >= 0;
+                    btnUpdate.setEnabled(rowSelected);
+                    btnDelete.setEnabled(rowSelected);
+                    btnResetPassword.setEnabled(rowSelected);
+                    btnPermissions.setEnabled(rowSelected);
+                    
+                    if (rowSelected) {
+                        // Lấy thông tin từ hàng được chọn
+                        int userId = (int) tableModel.getValueAt(selectedRow, 0);
+                        String username = (String) tableModel.getValueAt(selectedRow, 1);
+                        String email = (String) tableModel.getValueAt(selectedRow, 2);
+                        // Lấy user đầy đủ từ database
+                        selectedUser = userDAO.getUserById(userId);
+                    } else {
+                        selectedUser = null;
+                    }
                 }
             }
         });
-        updateButtonStates(); // Cập nhật trạng thái nút ban đầu
+        
+        // Ban đầu vô hiệu hóa các nút sửa, xóa, đặt lại mật khẩu, phân quyền
+        btnUpdate.setEnabled(false);
+        btnDelete.setEnabled(false);
+        btnResetPassword.setEnabled(false);
+        btnPermissions.setEnabled(false);
     }
 
     private void initTable() {
-        tableModel = new DefaultTableModel(
-                new Object[]{"Mã ND", "Tên Đăng Nhập", "Họ Tên", "Email", "Vai Trò"}, 0
-        ) {
-            @Override
-            public boolean isCellEditable(int row, int column) {
-                return false; // Không cho phép chỉnh sửa trực tiếp trên bảng
-            }
-        };
+        tableModel = new DefaultTableModel();
+        tableModel.setColumnIdentifiers(new Object[]{"Mã người dùng", "Tên đăng nhập", "Email", "Ngày tạo"});
         tblUser.setModel(tableModel);
     }
 
     private void fillToTable() {
-        tableModel.setRowCount(0); // Xóa các hàng hiện có
-
-        try {
-            ArrayList<User> allUsers = (ArrayList<User>) userDAO.getAllUsers(); // Giả định UserDAO có getAllUsers()
-            for (User user : allUsers) {
-                // Chuyển đổi List<String> roles thành một chuỗi để hiển thị
-                String rolesDisplay = (user.getRoles() != null && !user.getRoles().isEmpty())
-                                      ? String.join(", ", user.getRoles())
-                                      : "N/A";
-                tableModel.addRow(new Object[]{
-                    user.getUserID(),
-                    user.getUserName(),
-                    user.getFullName(),
-                    user.getEmail(),
-                    rolesDisplay
-                });
-            }
-        } catch (Exception e) {
-            LOGGER.log(Level.SEVERE, "Lỗi khi tải dữ liệu người dùng: " + e.getMessage(), e);
-            JOptionPane.showMessageDialog(this, "Lỗi khi tải dữ liệu người dùng: " + e.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
+        tableModel.setRowCount(0); // Xóa dữ liệu cũ
+        List<User> userList = userDAO.getAllUsers();
+        for (User user : userList) {
+            tableModel.addRow(new Object[]{
+                user.getUserId(),
+                user.getUsername(),
+                user.getEmail(),
+                user.getCreatedAt()
+            });
         }
     }
-
-    // --- Phương thức cập nhật trạng thái nút ---
-    private void updateButtonStates() {
-        int selectedRow = tblUser.getSelectedRow();
-        boolean isRowSelected = selectedRow != -1;
-
-        btnUpdate.setEnabled(isRowSelected); // Đã sửa từ btnEdit sang btnUpdate theo GUI
-        btnDelete.setEnabled(isRowSelected);
-        btnResetPassword.setEnabled(isRowSelected); // Kích hoạt nút đặt lại mật khẩu
+    
+    private void handleRefreshTable() {
+        fillToTable();
+        txtSearch.setText(""); // Xóa nội dung ô tìm kiếm
     }
-
-    // --- Phương thức xử lý tìm kiếm ---
+    
     private void performSearch() {
-        String searchTerm = txtSearch.getText().trim();
-        ArrayList<User> searchResults;
-
-        try {
-            if (searchTerm.isEmpty()) {
-                searchResults = (ArrayList<User>) userDAO.getAllUsers();
-            } else {
-                // Sửa lời gọi phương thức searchUser (số ít)
-                searchResults = (ArrayList<User>) userDAO.searchUser(searchTerm);
-            }
-
-            tableModel.setRowCount(0); // Xóa dữ liệu cũ
-
-            if (searchResults.isEmpty() && !searchTerm.isEmpty()) {
-                JOptionPane.showMessageDialog(this, "Không tìm thấy người dùng với từ khóa: '" + searchTerm + "'.", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
-            }
-
-            for (User user : searchResults) {
-                String rolesDisplay = (user.getRoles() != null && !user.getRoles().isEmpty())
-                                      ? String.join(", ", user.getRoles())
-                                      : "N/A";
+        String keyword = txtSearch.getText().trim();
+        if (keyword.isEmpty()) {
+            fillToTable();
+            return;
+        }
+        
+        tableModel.setRowCount(0); // Xóa dữ liệu cũ
+        List<User> userList = (List<User>) userDAO.getUserByUsername(keyword);
+        if (userList.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Không tìm thấy người dùng nào có tên đăng nhập chứa '" + keyword + "'", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
+        } else {
+            for (User user : userList) {
                 tableModel.addRow(new Object[]{
-                    user.getUserID(),
-                    user.getUserName(),
-                    user.getFullName(),
+                    user.getUserId(),
+                    user.getUsername(),
                     user.getEmail(),
-                    rolesDisplay
+                    user.getCreatedAt()
                 });
             }
-            updateButtonStates();
-        } catch (Exception e) {
-            LOGGER.log(Level.SEVERE, "Lỗi khi tìm kiếm người dùng: " + e.getMessage(), e);
-            JOptionPane.showMessageDialog(this, "Lỗi khi tìm kiếm người dùng: " + e.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+    
+    // --- Phương thức cập nhật trạng thái nút ---
+    private void handleAddUser() {
+        Frame parentFrame = (Frame) SwingUtilities.getWindowAncestor(this);
+        UserManagementDialog dialog = new UserManagementDialog(parentFrame, true, null);
+        dialog.setVisible(true);
+        if (dialog.isSucceeded()) {
+            fillToTable(); // Cập nhật lại bảng nếu thêm thành công
         }
     }
 
     // --- Phương thức xử lý thêm người dùng mới ---
-    private void handleAddNewUser() {
-        Frame parentFrame = (Frame) SwingUtilities.getWindowAncestor(this);
-        // Mở dialog ở chế độ thêm mới (truyền null cho user và false cho isEditMode)
-        UserManagementDialog dialog = new UserManagementDialog(parentFrame, false, null);
-        dialog.setVisible(true);
-
-        if (dialog.isSucceeded()) {
-            fillToTable(); // Làm mới bảng sau khi thêm mới thành công
-            JOptionPane.showMessageDialog(this, "Thêm mới người dùng thành công!", "Thành công", JOptionPane.INFORMATION_MESSAGE);
-        } else {
-            JOptionPane.showMessageDialog(this, "Thao tác thêm mới bị hủy hoặc thất bại.", "Thông báo", JOptionPane.WARNING_MESSAGE);
-        }
-        updateButtonStates();
-    }
-
-    // --- Phương thức xử lý sửa thông tin người dùng ---
-    private void handleEditUser() {
-        int selectedRow = tblUser.getSelectedRow();
-        if (selectedRow == -1) {
-            JOptionPane.showMessageDialog(this, "Vui lòng chọn một người dùng để sửa.", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
-            return;
-        }
-
-        String userId = (String) tableModel.getValueAt(selectedRow, 0);
-        User user = userDAO.getUserById(userId); // Giả định UserDAO có getUserById()
-        if (user != null) {
+    private void handleUpdateUser() {
+        if (selectedUser != null) {
             Frame parentFrame = (Frame) SwingUtilities.getWindowAncestor(this);
-            // Mở dialog ở chế độ chỉnh sửa (truyền đối tượng user và true cho isEditMode)
-            UserManagementDialog dialog = new UserManagementDialog(parentFrame, true, user);
+            UserManagementDialog dialog = new UserManagementDialog(parentFrame, true, selectedUser);
             dialog.setVisible(true);
-            
             if (dialog.isSucceeded()) {
-                fillToTable(); // Làm mới bảng sau khi sửa thành công
-                JOptionPane.showMessageDialog(this, "Cập nhật thông tin người dùng thành công!", "Thành công", JOptionPane.INFORMATION_MESSAGE);
-            } else {
-                JOptionPane.showMessageDialog(this, "Thao tác cập nhật bị hủy hoặc thất bại.", "Thông báo", JOptionPane.WARNING_MESSAGE);
+                fillToTable(); // Cập nhật lại bảng nếu sửa thành công
             }
         } else {
-            JOptionPane.showMessageDialog(this, "Không tìm thấy người dùng để sửa.", "Lỗi", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Vui lòng chọn một người dùng để cập nhật.", "Lỗi", JOptionPane.WARNING_MESSAGE);
         }
-        updateButtonStates();
     }
 
     // --- Phương thức xử lý xóa người dùng ---
@@ -185,7 +150,7 @@ public class UserManagementPanel extends javax.swing.JPanel {
             return;
         }
 
-        String userId = (String) tableModel.getValueAt(selectedRow, 0);
+        int userId = (int) tableModel.getValueAt(selectedRow, 0);
         String userName = (String) tableModel.getValueAt(selectedRow, 1); // Tên đăng nhập để hiển thị trong thông báo
 
         int confirm = JOptionPane.showConfirmDialog(this,
@@ -202,46 +167,27 @@ public class UserManagementPanel extends javax.swing.JPanel {
                 JOptionPane.showMessageDialog(this, "Không thể xóa người dùng.", "Lỗi", JOptionPane.ERROR_MESSAGE);
             }
         }
-        updateButtonStates();
     }
 
     // --- Phương thức xử lý đặt lại mật khẩu ---
     private void handleResetPassword() {
-        int selectedRow = tblUser.getSelectedRow();
-        if (selectedRow == -1) {
-            JOptionPane.showMessageDialog(this, "Vui lòng chọn một người dùng để đặt lại mật khẩu.", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
-            return;
-        }
-
-        String userId = (String) tableModel.getValueAt(selectedRow, 0);
-        String userName = (String) tableModel.getValueAt(selectedRow, 1);
-
-        String newPassword = JOptionPane.showInputDialog(this, "Nhập mật khẩu mới cho người dùng '" + userName + "':", "Đặt lại mật khẩu", JOptionPane.PLAIN_MESSAGE);
-
-        if (newPassword != null && !newPassword.trim().isEmpty()) {
-            try {
-                // Thêm try-catch cho resetPassword
-                boolean success = userDAO.resetPassword(userId, newPassword.trim()); // Giả định UserDAO có resetPassword()
-                if (success) {
-                    JOptionPane.showMessageDialog(this, "Đặt lại mật khẩu thành công cho người dùng '" + userName + "'.", "Thành công", JOptionPane.INFORMATION_MESSAGE);
-                } else {
-                    JOptionPane.showMessageDialog(this, "Không thể đặt lại mật khẩu cho người dùng '" + userName + "'.", "Lỗi", JOptionPane.ERROR_MESSAGE);
+        if (selectedUser != null) {
+            String newPassword = JOptionPane.showInputDialog(this, "Nhập mật khẩu mới cho người dùng '" + selectedUser.getUsername() + "':", "Đặt lại mật khẩu", JOptionPane.PLAIN_MESSAGE);
+            if (newPassword != null && !newPassword.trim().isEmpty()) {
+                try {
+                    userDAO.updatePassword(selectedUser.getUserId(), newPassword); // Gọi phương thức updatePassword
+                    JOptionPane.showMessageDialog(this, "Đặt lại mật khẩu thành công!", "Thành công", JOptionPane.INFORMATION_MESSAGE);
+                } catch (SQLException ex) {
+                    Logger.getLogger(UserManagementPanel.class.getName()).log(Level.SEVERE, null, ex);
                 }
-            } catch (SQLException ex) {
-                Logger.getLogger(UserManagementPanel.class.getName()).log(Level.SEVERE, null, ex);
+            } else if (newPassword != null) {
+                JOptionPane.showMessageDialog(this, "Mật khẩu không được để trống.", "Lỗi", JOptionPane.WARNING_MESSAGE);
             }
-        } else if (newPassword != null) { // Người dùng nhấn OK nhưng để trống
-            JOptionPane.showMessageDialog(this, "Mật khẩu mới không được để trống.", "Cảnh báo", JOptionPane.WARNING_MESSAGE);
+        } else {
+            JOptionPane.showMessageDialog(this, "Vui lòng chọn một người dùng để đặt lại mật khẩu.", "Lỗi", JOptionPane.WARNING_MESSAGE);
         }
     }
 
-    // --- Phương thức xử lý làm mới bảng ---
-    private void handleRefreshTable() {
-        fillToTable();
-        txtSearch.setText(""); // Xóa nội dung tìm kiếm
-        updateButtonStates();
-        JOptionPane.showMessageDialog(this, "Dữ liệu đã được làm mới.", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
-    }
 
     /**
      * This method is called from within the constructor to initialize the form.
@@ -253,41 +199,22 @@ public class UserManagementPanel extends javax.swing.JPanel {
     private void initComponents() {
 
         pnToolbar = new javax.swing.JPanel();
-        lblSearch = new javax.swing.JLabel();
-        txtSearch = new javax.swing.JTextField();
-        btnSearch = new javax.swing.JButton();
         jSeparator1 = new javax.swing.JSeparator();
         btnAdd = new javax.swing.JButton();
         btnDelete = new javax.swing.JButton();
         btnUpdate = new javax.swing.JButton();
-        btnResetPassword = new javax.swing.JButton();
+        btnPermissions = new javax.swing.JButton();
         btnRefresh = new javax.swing.JButton();
+        txtSearch = new javax.swing.JTextField();
+        lblSearch = new javax.swing.JLabel();
+        btnSearch = new javax.swing.JButton();
+        btnResetPassword = new javax.swing.JButton();
         spUserTable = new javax.swing.JScrollPane();
         tblUser = new javax.swing.JTable();
 
-        setLayout(new java.awt.BorderLayout());
-
-        lblSearch.setText("Search: ");
-        pnToolbar.add(lblSearch);
-
-        txtSearch.setColumns(20);
-        txtSearch.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                txtSearchActionPerformed(evt);
-            }
-        });
-        pnToolbar.add(txtSearch);
-
-        btnSearch.setText("SEARCH");
-        btnSearch.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                btnSearchActionPerformed(evt);
-            }
-        });
-        pnToolbar.add(btnSearch);
+        pnToolbar.setBorder(javax.swing.BorderFactory.createTitledBorder("Toolbar"));
 
         jSeparator1.setOrientation(javax.swing.SwingConstants.VERTICAL);
-        pnToolbar.add(jSeparator1);
 
         btnAdd.setText("ADD");
         btnAdd.addActionListener(new java.awt.event.ActionListener() {
@@ -295,7 +222,6 @@ public class UserManagementPanel extends javax.swing.JPanel {
                 btnAddActionPerformed(evt);
             }
         });
-        pnToolbar.add(btnAdd);
 
         btnDelete.setText("DELETE");
         btnDelete.addActionListener(new java.awt.event.ActionListener() {
@@ -303,7 +229,6 @@ public class UserManagementPanel extends javax.swing.JPanel {
                 btnDeleteActionPerformed(evt);
             }
         });
-        pnToolbar.add(btnDelete);
 
         btnUpdate.setText("UPDATE");
         btnUpdate.addActionListener(new java.awt.event.ActionListener() {
@@ -311,15 +236,13 @@ public class UserManagementPanel extends javax.swing.JPanel {
                 btnUpdateActionPerformed(evt);
             }
         });
-        pnToolbar.add(btnUpdate);
 
-        btnResetPassword.setText("RESET PASSWORD");
-        btnResetPassword.addActionListener(new java.awt.event.ActionListener() {
+        btnPermissions.setText("PERMISSIONS");
+        btnPermissions.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
-                btnResetPasswordActionPerformed(evt);
+                btnPermissionsActionPerformed(evt);
             }
         });
-        pnToolbar.add(btnResetPassword);
 
         btnRefresh.setText("REFRESH");
         btnRefresh.addActionListener(new java.awt.event.ActionListener() {
@@ -327,10 +250,76 @@ public class UserManagementPanel extends javax.swing.JPanel {
                 btnRefreshActionPerformed(evt);
             }
         });
-        pnToolbar.add(btnRefresh);
 
-        add(pnToolbar, java.awt.BorderLayout.PAGE_START);
+        txtSearch.setColumns(20);
+        txtSearch.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                txtSearchActionPerformed(evt);
+            }
+        });
 
+        lblSearch.setText("Search: ");
+
+        btnSearch.setText("SEARCH");
+        btnSearch.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                btnSearchActionPerformed(evt);
+            }
+        });
+
+        btnResetPassword.setText("RESET PASSWORD");
+
+        javax.swing.GroupLayout pnToolbarLayout = new javax.swing.GroupLayout(pnToolbar);
+        pnToolbar.setLayout(pnToolbarLayout);
+        pnToolbarLayout.setHorizontalGroup(
+            pnToolbarLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(pnToolbarLayout.createSequentialGroup()
+                .addGap(203, 203, 203)
+                .addGroup(pnToolbarLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+                    .addComponent(jSeparator1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(btnAdd))
+                .addGap(18, 18, 18)
+                .addComponent(btnUpdate)
+                .addGap(18, 18, 18)
+                .addComponent(btnDelete)
+                .addGap(18, 18, 18)
+                .addComponent(btnPermissions)
+                .addGap(18, 18, 18)
+                .addComponent(btnResetPassword)
+                .addGap(18, 18, 18)
+                .addComponent(btnRefresh)
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, pnToolbarLayout.createSequentialGroup()
+                .addGap(0, 0, Short.MAX_VALUE)
+                .addComponent(lblSearch)
+                .addGap(18, 18, 18)
+                .addComponent(txtSearch, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(18, 18, 18)
+                .addComponent(btnSearch)
+                .addGap(428, 428, 428))
+        );
+        pnToolbarLayout.setVerticalGroup(
+            pnToolbarLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(pnToolbarLayout.createSequentialGroup()
+                .addGap(18, 18, 18)
+                .addComponent(jSeparator1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(42, 42, 42)
+                .addGroup(pnToolbarLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(btnAdd)
+                    .addComponent(btnDelete)
+                    .addComponent(btnUpdate)
+                    .addComponent(btnPermissions)
+                    .addComponent(btnRefresh)
+                    .addComponent(btnResetPassword))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 73, Short.MAX_VALUE)
+                .addGroup(pnToolbarLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(btnSearch)
+                    .addComponent(txtSearch, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(lblSearch))
+                .addContainerGap())
+        );
+
+        spUserTable.setBorder(javax.swing.BorderFactory.createTitledBorder("User Table"));
         spUserTable.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
                 spUserTableMouseClicked(evt);
@@ -355,7 +344,27 @@ public class UserManagementPanel extends javax.swing.JPanel {
         });
         spUserTable.setViewportView(tblUser);
 
-        add(spUserTable, java.awt.BorderLayout.CENTER);
+        javax.swing.GroupLayout layout = new javax.swing.GroupLayout(this);
+        this.setLayout(layout);
+        layout.setHorizontalGroup(
+            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(layout.createSequentialGroup()
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(layout.createSequentialGroup()
+                        .addContainerGap()
+                        .addComponent(spUserTable, javax.swing.GroupLayout.PREFERRED_SIZE, 933, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addGap(0, 61, Short.MAX_VALUE))
+                    .addComponent(pnToolbar, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                .addContainerGap())
+        );
+        layout.setVerticalGroup(
+            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(layout.createSequentialGroup()
+                .addComponent(pnToolbar, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 37, Short.MAX_VALUE)
+                .addComponent(spUserTable, javax.swing.GroupLayout.PREFERRED_SIZE, 426, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addContainerGap())
+        );
     }// </editor-fold>//GEN-END:initComponents
 
     private void txtSearchActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_txtSearchActionPerformed
@@ -374,7 +383,7 @@ public class UserManagementPanel extends javax.swing.JPanel {
 
     private void btnAddActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnAddActionPerformed
         // TODO add your handling code here:
-        handleAddNewUser();
+        handleAddUser();
     }//GEN-LAST:event_btnAddActionPerformed
 
     private void btnDeleteActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnDeleteActionPerformed
@@ -384,7 +393,7 @@ public class UserManagementPanel extends javax.swing.JPanel {
 
     private void btnUpdateActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnUpdateActionPerformed
         // TODO add your handling code here:
-        handleEditUser();
+        handleUpdateUser();
     }//GEN-LAST:event_btnUpdateActionPerformed
 
     private void btnRefreshActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnRefreshActionPerformed
@@ -402,15 +411,38 @@ public class UserManagementPanel extends javax.swing.JPanel {
 
     }//GEN-LAST:event_btnSearchActionPerformed
 
-    private void btnResetPasswordActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnResetPasswordActionPerformed
+    private void btnPermissionsActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnPermissionsActionPerformed
         // TODO add your handling code here:
-        handleResetPassword();
-    }//GEN-LAST:event_btnResetPasswordActionPerformed
+        int selectedRow = tblUser.getSelectedRow();
+        if (selectedRow == -1) {
+            JOptionPane.showMessageDialog(this, "Vui lòng chọn một người dùng để phân quyền.", "Thông báo", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        // Lấy ID người dùng từ cột đầu tiên của hàng được chọn
+        int userId = (int) tblUser.getValueAt(selectedRow, 0);
+        // Lấy đối tượng User đầy đủ từ database
+        User userToDecentralize = userDAO.getUserById(userId);
+        if (userToDecentralize != null) {
+            // Mở dialog phân quyền và truyền đối tượng User vào
+            Frame parentFrame = (Frame) SwingUtilities.getWindowAncestor(this);
+            UserPermissionDialog dialog = new UserPermissionDialog(parentFrame, true, userToDecentralize);
+            dialog.setVisible(true);
+            
+            // Nếu dữ liệu đã được lưu, làm mới bảng để cập nhật các thay đổi
+            if (dialog.isDataSaved()) {
+                handleRefreshTable();
+            }
+        } else {
+            JOptionPane.showMessageDialog(this, "Không tìm thấy người dùng với ID đã chọn.", "Lỗi Dữ liệu", JOptionPane.ERROR_MESSAGE);
+        }
+    }//GEN-LAST:event_btnPermissionsActionPerformed
 
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JButton btnAdd;
     private javax.swing.JButton btnDelete;
+    private javax.swing.JButton btnPermissions;
     private javax.swing.JButton btnRefresh;
     private javax.swing.JButton btnResetPassword;
     private javax.swing.JButton btnSearch;

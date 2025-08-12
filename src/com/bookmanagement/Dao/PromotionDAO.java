@@ -56,6 +56,25 @@ public class PromotionDAO {
         }
         return false;
     }
+    
+    public List<Promotion> getAllActivePromotions() throws SQLException {
+        List<Promotion> promotions = new ArrayList<>();
+        // SQL query để lấy các khuyến mãi đang hoạt động (active = true)
+        // và ngày hiện tại nằm trong khoảng [start_date, end_date]
+        String sql = "SELECT * FROM dbo.promotions WHERE is_active = 1 AND start_date <= GETDATE() AND end_date >= GETDATE()";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql);
+             ResultSet rs = stmt.executeQuery()) {
+
+            while (rs.next()) {
+                promotions.add(mapPromotionFromResultSet(rs));
+            }
+        } catch (SQLException ex) {
+            LOGGER.log(Level.SEVERE, "Lỗi khi lấy danh sách khuyến mãi đang hoạt động.", ex);
+            throw ex;
+        }
+        return promotions;
+    }
 
     /**
      * Cập nhật thông tin khuyến mãi.
@@ -194,7 +213,54 @@ public class PromotionDAO {
         }
         return promotions;
     }
+    
+    
+    public void autoUpdatePromotionStatus() {
+        String sql = "UPDATE dbo.promotions SET is_active = 0 WHERE end_date < ? AND is_active = 1";
+        try (Connection conn = DBConnection.getConnection(); 
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
 
+            stmt.setDate(1, java.sql.Date.valueOf(LocalDate.now()));
+            int updatedRows = stmt.executeUpdate();
+            if (updatedRows > 0) {
+                LOGGER.log(Level.INFO, "Đã cập nhật trạng thái của {0} khuyến mãi hết hạn.", updatedRows);
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Lỗi khi cập nhật trạng thái khuyến mãi tự động", e);
+            try {
+                throw e;
+            } catch (SQLException ex) {
+                Logger.getLogger(PromotionDAO.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+    }
+    
+    
+    public boolean isPromotionActive(Promotion promotion) {
+        if (promotion == null || !promotion.isActive()) {
+            return false;
+        }
+
+        LocalDate currentDate = LocalDate.now();
+        LocalDate startDate = promotion.getStartDate();
+        LocalDate endDate = promotion.getEndDate();
+
+        // Kiểm tra xem ngày hiện tại có nằm trong khoảng thời gian khuyến mãi không
+        return !currentDate.isBefore(startDate) && !currentDate.isAfter(endDate);
+    }
+    
+    
+    public boolean isPromotionActive(int promotionId, LocalDate checkDate) {
+        Promotion promotion = getPromotionById(promotionId);
+        if (promotion == null || !promotion.isActive()) {
+            return false;
+        }
+        LocalDate startDate = promotion.getStartDate();
+        LocalDate endDate = promotion.getEndDate();
+        // Kiểm tra xem ngày checkDate có nằm trong khoảng thời gian khuyến mãi không
+        return !checkDate.isBefore(startDate) && !checkDate.isAfter(endDate);
+    }
+    
     /**
      * Phương thức trợ giúp để ánh xạ một ResultSet thành một đối tượng Promotion.
      *

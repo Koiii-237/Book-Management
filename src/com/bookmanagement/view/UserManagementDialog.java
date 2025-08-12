@@ -8,8 +8,8 @@ package com.bookmanagement.view;
  *
  * @author ADMIN
  */
-import com.bookmanagement.Dao.UserDAO; // Giả định bạn có UserDAO
-import com.bookmanagement.model.User; // Giả định bạn có lớp User model
+import com.bookmanagement.Dao.UserDAO;
+import com.bookmanagement.model.User;
 import javax.swing.JOptionPane;
 import java.awt.Frame;
 import java.sql.SQLException;
@@ -17,7 +17,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javax.swing.JCheckBox;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.Date;
 
 public class UserManagementDialog extends javax.swing.JDialog {
 
@@ -25,7 +27,7 @@ public class UserManagementDialog extends javax.swing.JDialog {
     private UserDAO userDAO;
     private User currentUser; // Đối tượng User hiện tại (nếu đang sửa)
     private boolean isEditMode; // true nếu đang ở chế độ sửa, false nếu thêm mới
-    private boolean isSucceeded = false; // Biến để kiểm tra thao tác có thành công không
+    private boolean isSucceeded = false;
 
     /**
      * Creates new form UserManagementDialog
@@ -37,10 +39,10 @@ public class UserManagementDialog extends javax.swing.JDialog {
     public UserManagementDialog(Frame parent, boolean isEditMode, User user) {
         super(parent, true); // Luôn là modal
         initComponents();
-        this.userDAO = new UserDAO(); // Khởi tạo UserDAO
+        this.userDAO = new UserDAO();
         this.currentUser = user;
         this.isEditMode = isEditMode;
-        initDialogState(); // Thiết lập trạng thái ban đầu của dialog
+        initDialogState();
         this.setLocationRelativeTo(parent); // Canh giữa dialog
     }
 
@@ -48,153 +50,97 @@ public class UserManagementDialog extends javax.swing.JDialog {
         return isSucceeded;
     }
 
-    // --- Phương thức thiết lập trạng thái ban đầu của dialog ---
     private void initDialogState() {
         if (isEditMode && currentUser != null) {
             setTitle("SỬA THÔNG TIN NGƯỜI DÙNG");
-            txtUserId.setText(currentUser.getUserID());
-            txtUserId.setEditable(false); // Không cho phép sửa ID
-            txtUserName.setText(currentUser.getUserName());
-            txtUserName.setEditable(false); // Không cho phép sửa tên đăng nhập khi sửa
-            txtPassWord.setText(""); // Để trống, chỉ nhập khi muốn đổi
-            txtConfirmPassword.setText(""); // Để trống, chỉ nhập khi muốn đổi
-            txtFullName.setText(currentUser.getFullName());
-            txtEmail.setText(currentUser.getEmail());
-
-            // Thiết lập checkbox vai trò
-            chkAdmin.setSelected(currentUser.getRoles().contains("Admin"));
-            chkUser.setSelected(currentUser.getRoles().contains("User"));
-            chkManager.setSelected(currentUser.getRoles().contains("Manager"));
-
-        } else {
-            setTitle("THÊM MỚI THÔNG TIN NGƯỜI DÙNG");
-            txtUserId.setText("(AUTO GEN / Không sửa)");
-            txtUserId.setEditable(false); // Luôn không cho phép sửa ID
-            txtUserName.setText("");
-            txtUserName.setEditable(true); // Cho phép nhập tên đăng nhập khi thêm mới
+            txtUserId.setText(String.valueOf(currentUser.getUserId()));
+            txtUserId.setEditable(false);
+            txtUserName.setText(currentUser.getUsername());
             txtPassWord.setText("");
-            txtConfirmPassword.setText("");
-            txtFullName.setText("");
-            txtEmail.setText("");
-
-            // Mặc định chọn vai trò User khi thêm mới
-            chkAdmin.setSelected(false);
-            chkUser.setSelected(true);
-            chkManager.setSelected(false);
+            txtPassWord.setEditable(false);
+            lblPassWord.setEnabled(false);
+            txtEmail.setText(currentUser.getEmail());
+            jdcCreateAt.setDate(Date.from(currentUser.getCreatedAt().atZone(ZoneId.systemDefault()).toInstant()));
+            jdcCreateAt.setEnabled(false);
+        } else {
+            setTitle("THÊM MỚI NGƯỜI DÙNG");
+            txtUserId.setText("Tự động");
+            txtUserId.setEditable(false); 
+            jdcCreateAt.setDate(new Date());
+            jdcCreateAt.setEnabled(false);
         }
     }
 
-    // --- Phương thức thu thập dữ liệu từ các trường UI ---
-    private User collectFormData() {
-        String userId = isEditMode ? currentUser.getUserID() : null; // ID sẽ được tạo tự động nếu thêm mới
-        String userName = txtUserName.getText().trim();
-        String password = new String(txtPassWord.getPassword());
-        String confirmPassword = new String(txtConfirmPassword.getPassword());
-        String fullName = txtFullName.getText().trim();
+    private void handleSave() {
+        String username = txtUserName.getText().trim();
+        String password = new String(txtPassWord.getPassword()).trim();
         String email = txtEmail.getText().trim();
 
-        // Thu thập các vai trò đã chọn
-        List<String> roles = new ArrayList<>();
-        if (chkAdmin.isSelected()) {
-            roles.add("Admin");
-        }
-        if (chkUser.isSelected()) {
-            roles.add("User");
-        }
-        if (chkManager.isSelected()) {
-            roles.add("Manager");
+        // Kiểm tra dữ liệu bắt buộc
+        if (username.isEmpty() || email.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Tên đăng nhập và Email không được để trống.", "Lỗi nhập liệu", JOptionPane.ERROR_MESSAGE);
+            return;
         }
 
-        // Kiểm tra tính hợp lệ của dữ liệu
-        if (!validateInput(userName, password, confirmPassword, fullName, email, roles)) {
-            return null;
-        }
-
-        // Nếu là chế độ sửa và mật khẩu không thay đổi, giữ mật khẩu cũ
-        // Kiểm tra password.isEmpty() cho cả txtPassWord và txtConfirmPassword
-        if (isEditMode && password.isEmpty() && new String(txtConfirmPassword.getPassword()).isEmpty()) {
-            password = currentUser.getPassword(); // Giả định currentUser.getPassword() trả về mật khẩu đã hash/mã hóa
-        }
-        // Nếu là chế độ thêm mới và mật khẩu trống, hoặc chế độ sửa và mật khẩu mới trống,
-        // và mật khẩu cũ cũng trống (trường hợp không có mật khẩu)
-        else if (password.isEmpty()) { // Đảm bảo mật khẩu không trống nếu có ý định thay đổi
-            JOptionPane.showMessageDialog(this, "Mật khẩu không được để trống.", "Lỗi", JOptionPane.ERROR_MESSAGE);
-            return null;
-        }
-
-        return new User(userId, userName, password, fullName, email, roles);
-    }
-
-    // --- Phương thức kiểm tra tính hợp lệ của dữ liệu nhập vào ---
-    private boolean validateInput(String userName, String password, String confirmPassword, String fullName, String email, List<String> roles) {
-        if (userName.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Tên đăng nhập không được để trống.", "Lỗi", JOptionPane.ERROR_MESSAGE);
-            return false;
-        }
-        // Mật khẩu không được trống khi thêm mới HOẶC khi người dùng nhập mật khẩu mới ở chế độ sửa
-        if (!isEditMode && password.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Mật khẩu không được để trống khi thêm mới.", "Lỗi", JOptionPane.ERROR_MESSAGE);
-            return false;
-        }
-        // Chỉ kiểm tra khớp mật khẩu nếu người dùng có nhập mật khẩu mới
-        if (!password.isEmpty() && !password.equals(confirmPassword)) {
-            JOptionPane.showMessageDialog(this, "Mật khẩu và xác nhận mật khẩu không khớp.", "Lỗi", JOptionPane.ERROR_MESSAGE);
-            return false;
-        }
-        if (fullName.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Họ và tên không được để trống.", "Lỗi", JOptionPane.ERROR_MESSAGE);
-            return false;
-        }
-        if (email.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Email không được để trống.", "Lỗi", JOptionPane.ERROR_MESSAGE);
-            return false;
-        }
-        // Basic email validation (can be enhanced with regex)
-        if (!email.contains("@") || !email.contains(".")) {
-            JOptionPane.showMessageDialog(this, "Email không hợp lệ.", "Lỗi", JOptionPane.ERROR_MESSAGE);
-            return false;
-        }
-        if (roles.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Vui lòng chọn ít nhất một vai trò.", "Lỗi", JOptionPane.ERROR_MESSAGE);
-            return false;
-        }
-        return true;
-    }
-
-    // --- Phương thức xử lý logic lưu (thêm mới hoặc cập nhật) ---
-    private void handleSaveLogic() {
-        User user = collectFormData();
-        if (user == null) {
-            return; // Dữ liệu không hợp lệ, đã có thông báo lỗi
-        }
-
-        boolean success; // Xử lý lỗi trùng tên đăng nhập nếu có (ví dụ: e.getSQLState().startsWith("23"))
-        // Tùy thuộc vào thông báo lỗi của DB
         if (isEditMode) {
-            success = userDAO.updateUser(user); // Giả định UserDAO có updateUser()
+            // Chế độ CẬP NHẬT người dùng
+            currentUser.setUsername(username);
+            currentUser.setEmail(email);
+            
+            // Cập nhật mật khẩu nếu có mật khẩu mới được nhập
+            if (!password.isEmpty()) {
+                // Cập nhật mật khẩu trực tiếp, không hash
+                currentUser.setPasswordHash(password);
+                if (userDAO.updateUser(currentUser)) {
+                    JOptionPane.showMessageDialog(this, "Cập nhật người dùng thành công!", "Thành công", JOptionPane.INFORMATION_MESSAGE);
+                    isSucceeded = true;
+                    dispose();
+                } else {
+                    JOptionPane.showMessageDialog(this, "Cập nhật người dùng thất bại.", "Lỗi", JOptionPane.ERROR_MESSAGE);
+                }
+            } else {
+                try {
+                    // Nếu mật khẩu để trống, chỉ cập nhật các thông tin khác
+                    if (userDAO.updateUserWithoutPassword(currentUser)) {
+                        JOptionPane.showMessageDialog(this, "Cập nhật thông tin người dùng thành công!", "Thành công", JOptionPane.INFORMATION_MESSAGE);
+                        isSucceeded = true;
+                        dispose();
+                    } else {
+                        JOptionPane.showMessageDialog(this, "Cập nhật thông tin người dùng thất bại.", "Lỗi", JOptionPane.ERROR_MESSAGE);
+                    }
+                } catch (SQLException ex) {
+                    Logger.getLogger(UserManagementDialog.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
         } else {
-            success = userDAO.addUser(user); // Giả định UserDAO có addUser()
-        }
-        if (success) {
-            isSucceeded = true; // Đặt trạng thái thành công
-            JOptionPane.showMessageDialog(this, "Lưu thông tin người dùng thành công!", "Thành công", JOptionPane.INFORMATION_MESSAGE);
-            dispose(); // Đóng dialog
-        } else {
-            JOptionPane.showMessageDialog(this, "Không thể lưu thông tin người dùng.", "Lỗi", JOptionPane.ERROR_MESSAGE);
+            try {
+                // Chế độ THÊM MỚI người dùng
+                if (password.isEmpty()) {
+                    JOptionPane.showMessageDialog(this, "Mật khẩu không được để trống khi thêm mới.", "Lỗi nhập liệu", JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
+                
+                // Kiểm tra tên đăng nhập đã tồn tại chưa
+                if (userDAO.isUsernameExists(username)) {
+                    JOptionPane.showMessageDialog(this, "Tên đăng nhập đã tồn tại. Vui lòng chọn tên khác.", "Lỗi", JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
+                
+                // Tạo đối tượng User mới và thêm vào CSDL
+                User newUser = new User(0, username, password, email, LocalDateTime.now());
+                if (userDAO.addUser(newUser)) {
+                    JOptionPane.showMessageDialog(this, "Thêm người dùng mới thành công!", "Thành công", JOptionPane.INFORMATION_MESSAGE);
+                    isSucceeded = true;
+                    dispose();
+                } else {
+                    JOptionPane.showMessageDialog(this, "Thêm người dùng mới thất bại.", "Lỗi", JOptionPane.ERROR_MESSAGE);
+                }
+            } catch (SQLException ex) {
+                Logger.getLogger(UserManagementDialog.class.getName()).log(Level.SEVERE, null, ex);
+            }
         }
     }
-
-    // --- Phương thức xử lý hủy bỏ thao tác ---
-    private void handleCancelLogic() {
-        isSucceeded = false; // Đặt trạng thái không thành công
-        dispose(); // Đóng dialog
-    }
-
-    /**
-     * This method is called from within the constructor to initialize the form.
-     * WARNING: Do NOT modify this code. The content of this method is always
-     * regenerated by the Form Editor.
-     */
+    
     @SuppressWarnings("unchecked")
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
@@ -204,20 +150,13 @@ public class UserManagementDialog extends javax.swing.JDialog {
         lblUserName = new javax.swing.JLabel();
         lblUserId = new javax.swing.JLabel();
         lblPassWord = new javax.swing.JLabel();
-        lblConfirmPassword = new javax.swing.JLabel();
         lblEmail = new javax.swing.JLabel();
         txtUserId = new javax.swing.JTextField();
         txtUserName = new javax.swing.JTextField();
         txtEmail = new javax.swing.JTextField();
-        lblFullName = new javax.swing.JLabel();
-        txtFullName = new javax.swing.JTextField();
         txtPassWord = new javax.swing.JPasswordField();
-        lblRoles = new javax.swing.JLabel();
-        pnCheckRoles = new javax.swing.JPanel();
-        chkAdmin = new javax.swing.JCheckBox();
-        chkUser = new javax.swing.JCheckBox();
-        chkManager = new javax.swing.JCheckBox();
-        txtConfirmPassword = new javax.swing.JPasswordField();
+        lblDateCreate = new javax.swing.JLabel();
+        jdcCreateAt = new com.toedter.calendar.JDateChooser();
         pnButton = new javax.swing.JPanel();
         btnSave = new javax.swing.JButton();
         btnCancel = new javax.swing.JButton();
@@ -252,14 +191,6 @@ public class UserManagementDialog extends javax.swing.JDialog {
         gridBagConstraints.anchor = java.awt.GridBagConstraints.WEST;
         gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
         formPanel.add(lblPassWord, gridBagConstraints);
-
-        lblConfirmPassword.setText("CONFIRM PASSWORD: ");
-        gridBagConstraints = new java.awt.GridBagConstraints();
-        gridBagConstraints.gridx = 0;
-        gridBagConstraints.gridy = 3;
-        gridBagConstraints.anchor = java.awt.GridBagConstraints.WEST;
-        gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
-        formPanel.add(lblConfirmPassword, gridBagConstraints);
 
         lblEmail.setText("EMAIL: ");
         gridBagConstraints = new java.awt.GridBagConstraints();
@@ -299,27 +230,6 @@ public class UserManagementDialog extends javax.swing.JDialog {
         gridBagConstraints.weightx = 1.0;
         gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
         formPanel.add(txtEmail, gridBagConstraints);
-
-        lblFullName.setText("FULL NAME: ");
-        gridBagConstraints = new java.awt.GridBagConstraints();
-        gridBagConstraints.gridx = 0;
-        gridBagConstraints.gridy = 4;
-        gridBagConstraints.anchor = java.awt.GridBagConstraints.WEST;
-        gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
-        formPanel.add(lblFullName, gridBagConstraints);
-
-        txtFullName.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                txtFullNameActionPerformed(evt);
-            }
-        });
-        gridBagConstraints = new java.awt.GridBagConstraints();
-        gridBagConstraints.gridx = 1;
-        gridBagConstraints.gridy = 4;
-        gridBagConstraints.fill = java.awt.GridBagConstraints.HORIZONTAL;
-        gridBagConstraints.weightx = 1.0;
-        gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
-        formPanel.add(txtFullName, gridBagConstraints);
         gridBagConstraints = new java.awt.GridBagConstraints();
         gridBagConstraints.gridx = 1;
         gridBagConstraints.gridy = 2;
@@ -328,37 +238,20 @@ public class UserManagementDialog extends javax.swing.JDialog {
         gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
         formPanel.add(txtPassWord, gridBagConstraints);
 
-        lblRoles.setText("ROLES: ");
+        lblDateCreate.setText("Date Create: ");
         gridBagConstraints = new java.awt.GridBagConstraints();
         gridBagConstraints.gridx = 0;
         gridBagConstraints.gridy = 6;
         gridBagConstraints.anchor = java.awt.GridBagConstraints.WEST;
         gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
-        formPanel.add(lblRoles, gridBagConstraints);
-
-        chkAdmin.setText("ADMIN");
-        pnCheckRoles.add(chkAdmin);
-
-        chkUser.setText("USER");
-        pnCheckRoles.add(chkUser);
-
-        chkManager.setText("MANAGER");
-        pnCheckRoles.add(chkManager);
-
+        formPanel.add(lblDateCreate, gridBagConstraints);
         gridBagConstraints = new java.awt.GridBagConstraints();
         gridBagConstraints.gridx = 1;
         gridBagConstraints.gridy = 6;
         gridBagConstraints.fill = java.awt.GridBagConstraints.HORIZONTAL;
         gridBagConstraints.weightx = 1.0;
         gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
-        formPanel.add(pnCheckRoles, gridBagConstraints);
-        gridBagConstraints = new java.awt.GridBagConstraints();
-        gridBagConstraints.gridx = 1;
-        gridBagConstraints.gridy = 3;
-        gridBagConstraints.fill = java.awt.GridBagConstraints.HORIZONTAL;
-        gridBagConstraints.weightx = 1.0;
-        gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
-        formPanel.add(txtConfirmPassword, gridBagConstraints);
+        formPanel.add(jdcCreateAt, gridBagConstraints);
 
         getContentPane().add(formPanel, java.awt.BorderLayout.CENTER);
 
@@ -389,10 +282,6 @@ public class UserManagementDialog extends javax.swing.JDialog {
         // TODO add your handling code here:
     }//GEN-LAST:event_txtUserNameActionPerformed
 
-    private void txtFullNameActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_txtFullNameActionPerformed
-        // TODO add your handling code here:
-    }//GEN-LAST:event_txtFullNameActionPerformed
-
     private void txtSearchActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_txtSearchActionPerformed
         // TODO add your handling code here:
     }//GEN-LAST:event_txtSearchActionPerformed
@@ -407,12 +296,12 @@ public class UserManagementDialog extends javax.swing.JDialog {
 
     private void btnSaveActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnSaveActionPerformed
         // TODO add your handling code here:
-        handleSaveLogic();
+        handleSave();
     }//GEN-LAST:event_btnSaveActionPerformed
 
     private void btnCancelActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnCancelActionPerformed
         // TODO add your handling code here:
-        handleCancelLogic();
+        dispose();
     }//GEN-LAST:event_btnCancelActionPerformed
 
     /**
@@ -461,22 +350,15 @@ public class UserManagementDialog extends javax.swing.JDialog {
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JButton btnCancel;
     private javax.swing.JButton btnSave;
-    private javax.swing.JCheckBox chkAdmin;
-    private javax.swing.JCheckBox chkManager;
-    private javax.swing.JCheckBox chkUser;
     private javax.swing.JPanel formPanel;
-    private javax.swing.JLabel lblConfirmPassword;
+    private com.toedter.calendar.JDateChooser jdcCreateAt;
+    private javax.swing.JLabel lblDateCreate;
     private javax.swing.JLabel lblEmail;
-    private javax.swing.JLabel lblFullName;
     private javax.swing.JLabel lblPassWord;
-    private javax.swing.JLabel lblRoles;
     private javax.swing.JLabel lblUserId;
     private javax.swing.JLabel lblUserName;
     private javax.swing.JPanel pnButton;
-    private javax.swing.JPanel pnCheckRoles;
-    private javax.swing.JPasswordField txtConfirmPassword;
     private javax.swing.JTextField txtEmail;
-    private javax.swing.JTextField txtFullName;
     private javax.swing.JPasswordField txtPassWord;
     private javax.swing.JTextField txtUserId;
     private javax.swing.JTextField txtUserName;

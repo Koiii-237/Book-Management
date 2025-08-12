@@ -200,6 +200,35 @@ public class InventoryDAO {
         }
         return null;
     }
+    
+    
+    public boolean decreaseInventoryQuantity(int bookId, int warehouseId, int quantity) throws SQLException {
+        Inventory existingInventory = getInventoryByBookAndWarehouse(bookId, warehouseId);
+        if (existingInventory != null && existingInventory.getQuantity() >= quantity) {
+            int newQuantity = existingInventory.getQuantity() - quantity;
+            existingInventory.setQuantity(newQuantity);
+            return updateInventory(existingInventory);
+        } else {
+            LOGGER.log(Level.WARNING, "Không đủ số lượng tồn kho hoặc không tìm thấy sách trong kho.");
+            return false;
+        }
+    }
+    
+    public boolean increaseInventoryQuantity(int bookId, int warehouseId, int quantity) throws SQLException {
+        Inventory existingInventory = getInventoryByBookAndWarehouse(bookId, warehouseId);
+        if (existingInventory != null) {
+            int newQuantity = existingInventory.getQuantity() + quantity;
+            existingInventory.setQuantity(newQuantity);
+            return updateInventory(existingInventory);
+        } else {
+            // Nếu không tìm thấy, có thể thêm mới một bản ghi tồn kho
+            Inventory newInventory = new Inventory();
+            newInventory.setBookId(bookId);
+            newInventory.setWarehouseId(warehouseId);
+            newInventory.setQuantity(quantity);
+            return addInventory(newInventory);
+        }
+    }
 
     /**
      * Lấy tất cả các bản ghi tồn kho liên quan đến một cuốn sách.
@@ -207,22 +236,26 @@ public class InventoryDAO {
      * @param bookId ID của cuốn sách.
      * @return Một danh sách các đối tượng Inventory.
      */
-    public List<Inventory> getInventoriesByBookId(int bookId) {
-        List<Inventory> inventories = new ArrayList<>();
-        String sql = "SELECT * FROM dbo.inventory WHERE book_id = ?";
-        try (Connection conn = DBConnection.getConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
+    public int getStockQuantity(int bookId)  {
+        String sql = "SELECT quantity FROM dbo.inventory WHERE book_id = ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
 
             stmt.setInt(1, bookId);
-
             try (ResultSet rs = stmt.executeQuery()) {
-                while (rs.next()) {
-                    inventories.add(mapInventoryFromResultSet(rs));
+                if (rs.next()) {
+                    return rs.getInt("quantity");
                 }
             }
-        } catch (SQLException e) {
-            LOGGER.log(Level.SEVERE, "Lỗi khi lấy tồn kho theo sách ID: " + bookId, e);
+        } catch (SQLException ex) {
+            try {
+                LOGGER.log(Level.SEVERE, "Lỗi khi lấy số lượng tồn kho của sách ID: " + bookId, ex);
+                throw ex;
+            } catch (SQLException ex1) {
+                Logger.getLogger(InventoryDAO.class.getName()).log(Level.SEVERE, null, ex1);
+            }
         }
-        return inventories;
+        return 0;
     }
 
     public int getQuantityForBookInWarehouse(int bookId, int warehouseId) throws SQLException {
@@ -238,7 +271,132 @@ public class InventoryDAO {
         }
         return 0; // Trả về 0 nếu không tìm thấy bản ghi tồn kho
     }
+    
+    
+    public boolean updateOrCreateInventory(int bookId, int warehouseId, int quantity) {
+        // Bước 1: Kiểm tra xem đã có tồn kho cho cuốn sách và kho này chưa.
+        Inventory existingInventory = getInventoryByBookAndWarehouse(bookId, warehouseId);
+        if (existingInventory != null) {
+            // Bước 2: Nếu đã tồn tại, cập nhật số lượng.
+            // Số lượng mới bằng số lượng hiện có cộng với số lượng nhập thêm.
+            int newQuantity = existingInventory.getQuantity() + quantity;
+            existingInventory.setQuantity(newQuantity);
+            return updateInventory(existingInventory);
+        } else {
+            // Bước 3: Nếu chưa tồn tại, tạo một bản ghi mới.
+            Inventory newInventory = new Inventory();
+            newInventory.setBookId(bookId);
+            newInventory.setWarehouseId(warehouseId);
+            newInventory.setQuantity(quantity);
+            return addInventory(newInventory);
+        }
+    }
+    
+    public boolean decreaseInventoryQuantity(int bookId, int quantity) throws SQLException {
+        String checkSql = "SELECT quantity FROM inventory WHERE book_id = ?";
+        String updateSql = "UPDATE inventory SET quantity = quantity - ? WHERE book_id = ? AND quantity >= ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement checkPstmt = conn.prepareStatement(checkSql);
+             PreparedStatement updatePstmt = conn.prepareStatement(updateSql)) {
 
+            // Kiểm tra số lượng tồn kho
+            checkPstmt.setInt(1, bookId);
+            ResultSet rs = checkPstmt.executeQuery();
+            if (rs.next()) {
+                int currentQuantity = rs.getInt("quantity");
+                if (currentQuantity < quantity) {
+                    LOGGER.log(Level.WARNING, "Không đủ tồn kho để giảm. Hiện có: {0}, cần giảm: {1}", new Object[]{currentQuantity, quantity});
+                    return false;
+                }
+            } else {
+                LOGGER.log(Level.WARNING, "Không tìm thấy sách với ID: {0}", bookId);
+                return false;
+            }
+
+            // Tiến hành giảm số lượng
+            updatePstmt.setInt(1, quantity);
+            updatePstmt.setInt(2, bookId);
+            updatePstmt.setInt(3, quantity); // Đảm bảo số lượng không âm
+            int affectedRows = updatePstmt.executeUpdate();
+            
+            return affectedRows > 0;
+        } catch (SQLException ex) {
+            LOGGER.log(Level.SEVERE, "Lỗi khi giảm số lượng tồn kho", ex);
+            throw ex;
+        }
+    }
+    
+    public boolean isStockAvailable(int bookId, int quantity) throws SQLException {
+        String sql = "SELECT SUM(quantity) FROM dbo.inventory WHERE book_id = ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            
+            stmt.setInt(1, bookId);
+            
+            try(ResultSet rs = stmt.executeQuery()) {
+                if(rs.next()) {
+                    int availableQuantity = rs.getInt(1);
+                    return availableQuantity >= quantity;
+                }
+            }
+        } catch (SQLException ex) {
+            LOGGER.log(Level.SEVERE, "Lỗi khi kiểm tra số lượng tồn kho cho sách ID: " + bookId, ex);
+            throw ex;
+        }
+        return false;
+    }
+    
+    /**
+     * Cập nhật số lượng tồn kho cho một cuốn sách.
+     * Phương thức này sẽ tìm bản ghi tồn kho đầu tiên cho cuốn sách
+     * và cập nhật số lượng của nó.
+     *
+     * @param bookId ID của sách.
+     * @param quantity Số lượng cần cập nhật (có thể là số âm để giảm).
+     * @param isRefunded Nếu là true, sẽ hoàn lại vào kho (cộng dồn). Nếu false, sẽ trừ (giảm).
+     * @return true nếu cập nhật thành công, false nếu không.
+     * @throws SQLException nếu có lỗi xảy ra.
+     */
+    public boolean updateStockQuantity(int bookId, int quantity, boolean isRefunded) throws SQLException {
+        String sql = "UPDATE dbo.inventory SET quantity = quantity + ? WHERE book_id = ?";
+        if (!isRefunded) {
+             sql = "UPDATE dbo.inventory SET quantity = quantity - ? WHERE book_id = ?";
+        }
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setInt(1, quantity);
+            stmt.setInt(2, bookId);
+
+            int affectedRows = stmt.executeUpdate();
+            return affectedRows > 0;
+        } catch (SQLException ex) {
+            LOGGER.log(Level.SEVERE, "Lỗi khi cập nhật số lượng tồn kho cho sách ID: " + bookId, ex);
+            throw ex;
+        }
+    }
+    
+    
+    public void increaseInventoryQuantity(int bookId, int quantity) throws SQLException {
+        String sql = "UPDATE inventory SET quantity = quantity + ? WHERE book_id = ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setInt(1, quantity);
+            pstmt.setInt(2, bookId);
+
+            int affectedRows = pstmt.executeUpdate();
+            if (affectedRows > 0) {
+                LOGGER.log(Level.INFO, "Đã cập nhật thành công tồn kho cho sách có ID: {0}", bookId);
+            } else {
+                LOGGER.log(Level.WARNING, "Không tìm thấy sách có ID: {0} để cập nhật tồn kho", bookId);
+            }
+        } catch (SQLException ex) {
+            LOGGER.log(Level.SEVERE, "Lỗi khi tăng số lượng tồn kho", ex);
+            throw ex;
+        }
+    }
+    
     /**
      * Phương thức trợ giúp để ánh xạ một ResultSet thành một đối tượng
      * Inventory.

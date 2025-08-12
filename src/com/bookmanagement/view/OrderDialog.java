@@ -15,379 +15,345 @@ import java.awt.Dimension;
 import java.awt.FlowLayout;
 
 
-import com.bookmanagement.Dao.BookManagementDAO;
 import com.bookmanagement.Dao.CustomerDAO;
-import com.bookmanagement.Dao.InvoiceDAO;
+import com.bookmanagement.Dao.InventoryDAO;
 import com.bookmanagement.Dao.OrderDAO;
 import com.bookmanagement.Dao.OrderItemDAO;
+import com.bookmanagement.Dao.PaymentDAO;
+import com.bookmanagement.Dao.PromotionDAO;
+import com.bookmanagement.dao.BookDAO;
 import com.bookmanagement.model.Book;
 import com.bookmanagement.model.Customer;
 import com.bookmanagement.model.Order;
 import com.bookmanagement.model.OrderItem;
+import com.bookmanagement.model.Promotion;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import javax.swing.JOptionPane;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javax.swing.DefaultComboBoxModel;
 import javax.swing.table.DefaultTableModel;
-import java.sql.SQLException;
-import java.text.NumberFormat;
-import java.util.Locale;
-import java.util.UUID;
-import javax.swing.event.DocumentEvent;
-import javax.swing.event.DocumentListener;
-import java.awt.CardLayout; // Import CardLayout
-import java.awt.Frame;
-import java.awt.GridBagConstraints;
-import javax.swing.ImageIcon; // Import ImageIcon
-import java.awt.Image;
-import java.awt.Insets;
+import java.util.Map;
+import javax.swing.DefaultComboBoxModel;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.SwingConstants;
+import java.sql.SQLException;
+import java.text.NumberFormat;
+import java.util.Locale;
+import javax.swing.ComboBoxModel;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 
 public class OrderDialog extends javax.swing.JDialog {
     private static final Logger LOGGER = Logger.getLogger(OrderDialog.class.getName());
+    private Order currentOrder;
+    private final OrderDAO orderDAO;
+    private final OrderItemDAO orderItemDAO;
+    private final BookDAO bookDAO;
+    private final CustomerDAO customerDAO;
+    private final PromotionDAO promotionDAO;
+    private final InventoryDAO inventoryDAO;
+    private final PaymentDAO paymentDAO;
 
-    // DAO
-    private final BookManagementDAO bookDAO = new BookManagementDAO();
-    private final CustomerDAO customerDAO = new CustomerDAO();
-    private final OrderDAO orderDAO = new OrderDAO();
-    private final OrderItemDAO orderDetailDAO = new OrderItemDAO();
-    private final InvoiceDAO invoiceDAO = new InvoiceDAO();
+    private final DefaultTableModel orderItemTableModel;
+    private final Map<Integer, Book> bookMap; // Lưu trữ sách theo ID để truy cập nhanh
+    private final Map<Integer, Promotion> promotionMap; // Lưu trữ khuyến mãi theo ID
+    private final Map<Integer, Customer> customerMap; // Lưu trữ khách hàng theo ID
+    private final List<OrderItem> orderItems;
+    
 
-    // Data Models
-    private final DefaultTableModel cartTableModel;
-    private final DefaultComboBoxModel<String> bookComboBoxModel;
-
-    // Danh sách sách trong giỏ hàng
-    private final List<OrderItem> cartItems = new ArrayList<>();
-
-    // Tổng tiền của đơn hàng
-    private BigDecimal totalAmount = BigDecimal.ZERO;
-
-    // Danh sách các sách có trong kho để hiển thị trên combobox
-    private List<Book> availableBooks;
-
-    // CardLayout và panel chứa các phương thức thanh toán
-    private CardLayout paymentCardLayout;
-    private boolean orderCreatedSuccessfully = false;
-
-    public OrderDialog(java.awt.Frame parent, boolean modal) {
+    public OrderDialog(java.awt.Frame parent, boolean modal, Order order) {
         super(parent, modal);
         initComponents();
-        this.setLocationRelativeTo(parent);
+        
+        this.currentOrder = order;
+        this.orderDAO = new OrderDAO();
+        this.orderItemDAO = new OrderItemDAO();
+        this.bookDAO = new BookDAO();
+        this.customerDAO = new CustomerDAO();
+        this.promotionDAO = new PromotionDAO();
+        this.inventoryDAO = new InventoryDAO();
+        this.paymentDAO = new PaymentDAO();
 
-        cartTableModel = (DefaultTableModel) tblCart.getModel();
-        bookComboBoxModel = (DefaultComboBoxModel<String>) cbBook.getModel();
+        this.orderItems = new ArrayList<>();
+        this.bookMap = new HashMap<>();
+        this.promotionMap = new HashMap<>();
+        this.customerMap = new HashMap<>();
+        
+        // Khởi tạo bảng mặt hàng đơn hàng
+        orderItemTableModel = (DefaultTableModel) tblProductsInOrder.getModel();
+        orderItemTableModel.setColumnIdentifiers(new String[]{"ID Sách", "Tiêu đề", "Giá", "Số lượng", "Tổng"});
 
-        initModels();
-        loadBooksAndCustomers();
-        addListeners();
-        updateUI();
-        initPaymentMethodPanelLogic(); // Khởi tạo logic cho panel phương thức thanh toán
-    }
-
-    OrderDialog(Frame frame, boolean b, Order order, List<OrderItem> orderDetails) {
-        throw new UnsupportedOperationException("Not supported yet."); // Generated from nbfs://nbhost/SystemFileSystem/Templates/Classes/Code/GeneratedMethodBody
-    }
-
-    private void initModels() {
-        // Thiết lập model cho bảng giỏ hàng
-        String[] columnNames = {"Tên sách", "Số lượng", "Giá", "Tổng"};
-        cartTableModel.setColumnIdentifiers(columnNames);
-        tblCart.setModel(cartTableModel);
-
-        // Thiết lập model cho combobox sách
-        cbBook.setModel(bookComboBoxModel);
-    }
-    
-    public boolean isOrderCreatedSuccessfully() {
-        return orderCreatedSuccessfully;
-    }
-    
-    private void loadBooksAndCustomers() {
-        try {
-            availableBooks = bookDAO.getAllBooks();
-            bookComboBoxModel.removeAllElements();
-            if (availableBooks != null) {
-                for (Book book : availableBooks) {
-                    bookComboBoxModel.addElement(book.getBookName());
-                }
-            }
-        } catch (SQLException ex) {
-            LOGGER.log(Level.SEVERE, "Lỗi khi tải dữ liệu sách", ex);
-            JOptionPane.showMessageDialog(this, "Lỗi khi tải dữ liệu sách: " + ex.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
+        loadDataForComboBoxes();
+        
+        if (this.currentOrder != null) {
+            // Chế độ chỉnh sửa
+            fillFormWithOrderData();
+        } else {
+            // Chế độ thêm mới
+            this.currentOrder = new Order();
+            // Khởi tạo một đối tượng đơn hàng mới với các giá trị mặc định
+            lblStatus.setText("Trạng thái: Đang xử lý");
+            txtOrderDate.setText(LocalDateTime.now().toString());
+            btnConfirm.setEnabled(false);
+            btnCancel.setEnabled(false);
         }
-    }
-
-    private void addListeners() {
-        // Lắng nghe sự thay đổi của trường nhập số tiền khách đưa (txtCustomerMoney1)
-        txtCustomerMoney1.getDocument().addDocumentListener(new DocumentListener() {
-            @Override
-            public void insertUpdate(DocumentEvent e) {
-                calculateChange();
-            }
-
-            @Override
-            public void removeUpdate(DocumentEvent e) {
-                calculateChange();
-            }
-
-            @Override
-            public void changedUpdate(DocumentEvent e) {
-                calculateChange();
-            }
-        });
         
-        txtCustomerMoney.getDocument().addDocumentListener(new DocumentListener() {
-            @Override
-            public void insertUpdate(DocumentEvent e) {
-                calculateChange();
-            }
-
-            @Override
-            public void removeUpdate(DocumentEvent e) {
-                calculateChange();
-            }
-
-            @Override
-            public void changedUpdate(DocumentEvent e) {
-                calculateChange();
-            }
-        });
-        
-
-        // Lắng nghe sự thay đổi của ComboBox phương thức thanh toán
-        cbPaymentMethod.addActionListener(e -> {
-            String selectedMethod = (String) cbPaymentMethod.getSelectedItem();
-            if ("TRANSFER".equals(selectedMethod)) { // Sử dụng "TRANSFER" như trong initComponents()
-                paymentCardLayout.show(pnPaymentDetails, "card3"); // "card3" là tên card cho pnTransfer
-            } else { // Mặc định là "CASH"
-                paymentCardLayout.show(pnPaymentDetails, "card2"); // "card2" là tên card cho pnCash
-            }
-        });
+        setupListeners();
+        updateTotalAmounts();
     }
 
-    private void updateUI() {
-        lblTotalValue.setText(NumberFormat.getCurrencyInstance(new Locale("vi", "VN")).format(totalAmount));
-        lblOrderIdValue.setText(UUID.randomUUID().toString().substring(0, 8));
-        btnPay.setEnabled(!cartItems.isEmpty());
-        btnDeleteBook.setEnabled(tblCart.getSelectedRow() != -1);
-        calculateChange(); // Cập nhật tiền thừa khi tổng tiền thay đổi
-    }
-
-    private void calculateChange() {
-        try {
-            BigDecimal customerMoney1 = new BigDecimal(txtCustomerMoney1.getText().replace(",", "").trim());
-            BigDecimal customerMoney = new BigDecimal(txtCustomerMoney.getText().replace(",", "").trim());
-            BigDecimal change1 = customerMoney1.subtract(totalAmount);
-            BigDecimal change = customerMoney.subtract(totalAmount);
-            if (change1.compareTo(BigDecimal.ZERO) < 0 || change.compareTo(BigDecimal.ZERO) < 0 ) {
-                lblChangeMoneyValue.setForeground(Color.RED);
-                lblChangeMoneyValue1.setForeground(Color.RED);
+    
+    private void setupListeners() {
+        // Thêm listener cho JComboBox khách hàng để cập nhật thông tin
+        cbxCustomer.addActionListener(e -> {
+            if (cbxCustomer.getSelectedItem() instanceof Customer) {
+                Customer selectedCustomer = (Customer) cbxCustomer.getSelectedItem();
+                txtCustomerID.setText(String.valueOf(selectedCustomer.getCustomerId()));
             } else {
-                lblChangeMoneyValue1.setForeground(Color.BLACK);
-                lblChangeMoneyValue.setForeground(Color.BLACK);
+                 txtCustomerID.setText("");
             }
-            lblChangeMoneyValue1.setText(NumberFormat.getCurrencyInstance(new Locale("vi", "VN")).format(change));
-            lblChangeMoneyValue.setText(NumberFormat.getCurrencyInstance(new Locale("vi", "VN")).format(change));
-        } catch (NumberFormatException ex) {
-            lblChangeMoneyValue1.setText("...");
-            lblChangeMoneyValue1.setForeground(Color.BLACK);
-            lblChangeMoneyValue.setText("...");
-            lblChangeMoneyValue.setForeground(Color.BLACK);
-        }
-    }
-
-    private void addBookToCart() {
-        int selectedBookIndex = cbBook.getSelectedIndex();
-        if (selectedBookIndex == -1) {
-            JOptionPane.showMessageDialog(this, "Vui lòng chọn một cuốn sách.", "Lỗi", JOptionPane.ERROR_MESSAGE);
-            return;
-        }
-
-        int quantity = 0;
-        try {
-            quantity = Integer.parseInt(txtQuantity.getText().trim());
-            if (quantity <= 0) {
-                throw new NumberFormatException();
-            }
-        } catch (NumberFormatException ex) {
-            JOptionPane.showMessageDialog(this, "Số lượng không hợp lệ.", "Lỗi", JOptionPane.ERROR_MESSAGE);
-            return;
-        }
-
-        Book selectedBook = availableBooks.get(selectedBookIndex);
-        if (selectedBook.getQuantity() < quantity) {
-            JOptionPane.showMessageDialog(this, "Số lượng trong kho không đủ. Chỉ còn " + selectedBook.getQuantity() + " cuốn.", "Lỗi", JOptionPane.ERROR_MESSAGE);
-            return;
-        }
-
-        // Cập nhật giỏ hàng
-        OrderItem newItem = new OrderItem();
-        newItem.setBookID(selectedBook.getBookID());
-        newItem.setBookName(selectedBook.getBookName());
-        newItem.setQuantity(quantity);
-        newItem.setUnitPrice(selectedBook.getPrice());
-        newItem.setSubtotal(selectedBook.getPrice().multiply(new BigDecimal(quantity)));
-        cartItems.add(newItem);
-
-        // Cập nhật tổng tiền và bảng
-        totalAmount = totalAmount.add(newItem.getSubtotal());
-        cartTableModel.addRow(new Object[]{
-            newItem.getBookName(),
-            newItem.getQuantity(),
-            NumberFormat.getCurrencyInstance(new Locale("vi", "VN")).format(newItem.getUnitPrice()),
-            NumberFormat.getCurrencyInstance(new Locale("vi", "VN")).format(newItem.getSubtotal())
         });
-
-        // Cập nhật lại UI
-        updateUI();
+        
+        // Thêm DocumentListener cho trường số lượng
+        txtQuantity.getDocument().addDocumentListener(new DocumentListener() {
+            public void changedUpdate(DocumentEvent e) {
+                validateQuantity();
+            }
+            public void removeUpdate(DocumentEvent e) {
+                validateQuantity();
+            }
+            public void insertUpdate(DocumentEvent e) {
+                validateQuantity();
+            }
+        });
     }
 
-    private void deleteBookFromCart() {
-        int selectedRow = tblCart.getSelectedRow();
-        if (selectedRow != -1) {
-            totalAmount = totalAmount.subtract(cartItems.get(selectedRow).getSubtotal());
-            cartItems.remove(selectedRow);
-            cartTableModel.removeRow(selectedRow);
-            updateUI();
-        }
-    }
-
-    private void performPayment() {
-        if (cartItems.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Giỏ hàng trống.", "Lỗi", JOptionPane.ERROR_MESSAGE);
-            return;
-        }
-
-        String customerId = txtCustomerId.getText().trim();
-        String paymentMethod = (String) cbPaymentMethod.getSelectedItem();
-
+    private void loadDataForComboBoxes() {
         try {
-            // Kiểm tra khách hàng
-            Customer customer = customerDAO.getCustomerById(customerId);
-            if (customer == null) {
-                // Tạo khách hàng mới nếu không tồn tại
-                customer = new Customer(customerId, "Khách vãng lai", "Địa chỉ mặc định", "0000000000");
-                customerDAO.addCustomer(customer);
+            // Tải khách hàng
+            List<Customer> customers = customerDAO.searchCustomers("");
+            // DefaultComboBoxModel là model của JComboBox, dùng để quản lý dữ liệu trong ComboBox.
+            DefaultComboBoxModel<Customer> customerModel = new DefaultComboBoxModel<>();
+            customers.forEach(customer -> {
+                customerModel.addElement(customer);
+                customerMap.put(customer.getCustomerId(), customer);
+            });
+            cbxCustomer.setModel( (ComboBoxModel) customerModel);
+            // Tải sách
+            List<Book> books = bookDAO.getAllBooks();
+            // Khai báo bookModel là DefaultComboBoxModel
+            DefaultComboBoxModel<Book> bookModel = new DefaultComboBoxModel<>();
+            books.forEach(book -> {
+                bookModel.addElement(book);
+                bookMap.put(book.getBookId(), book);
+            });
+            // Gán bookModel (là ComboBoxModel) vào JComboBox cbxBook
+            cbxBook.setModel( (ComboBoxModel) bookModel);
+            // Tải khuyến mãi
+            List<Promotion> promotions = promotionDAO.getAllActivePromotions();
+            DefaultComboBoxModel<Promotion> promoModel = new DefaultComboBoxModel<>();
+            promoModel.addElement(null);
+            promotions.forEach(promo -> {
+                promoModel.addElement(promo);
+                promotionMap.put(promo.getPromotionId(), promo);
+            });
+            cbxPromotion.setModel((ComboBoxModel) promoModel);
+        } catch (SQLException ex) {
+            Logger.getLogger(OrderDialog.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+    
+    private void fillFormWithOrderData() {
+        try {
+            lblOrderID.setText("Mã đơn hàng: " + currentOrder.getOrderId());
+            lblStatus.setText("Trạng thái: " + currentOrder.getStatus());
+            txtOrderDate.setText(currentOrder.getOrderDate().toString());
+            Customer customer = customerDAO.getCustomerById(currentOrder.getCustomerId());
+            if (customer != null) {
+                cbxCustomer.setSelectedItem(customer);
             }
-
-            // Tạo đối tượng Order
-            Order newOrder = new Order();
-            newOrder.setOrderID(UUID.randomUUID().toString());
-            newOrder.setOrderDate(LocalDate.now());
-            newOrder.setCustomerID(customerId);
-            newOrder.setTotalAmount(totalAmount);
-            newOrder.setStatus("Đã thanh toán");
-            newOrder.setPaymentMethod(paymentMethod); // Lưu phương thức thanh toán
-
-            // Lưu Order vào database
-            boolean orderAdded = orderDAO.insertOrder(newOrder);
-            if (!orderAdded) {
-                throw new SQLException("Không thể thêm đơn hàng vào database.");
-            }
-
-            // Lưu OrderDetails vào database
-            for (OrderItem detail : cartItems) {
-                detail.setOrderID(newOrder.getOrderID()); // Gán OrderID cho OrderDetail
-                orderDetailDAO.insertOrderDetail(detail); // Cần có phương thức này trong OrderDetailDAO
-            }
-
-            // Cập nhật số lượng sách trong kho
-            for (OrderItem detail : cartItems) {
-                Book book = bookDAO.getBookById(detail.getBookID());
-                if (book != null) {
-                    book.setQuantity(book.getQuantity() - detail.getQuantity());
-                    bookDAO.updateBook(book);
+            if (currentOrder.getPromotionId() != 0) {
+                Promotion promo = promotionDAO.getPromotionById(currentOrder.getPromotionId());
+                if (promo != null) {
+                    cbxPromotion.setSelectedItem(promo);
                 }
+            }
+            List<OrderItem> items = orderItemDAO.getOrderItemsByOrderId(currentOrder.getOrderId());
+            orderItems.addAll(items);
+            items.forEach(this::addRowToTable);
+            updateTotalAmounts();
+        } catch (SQLException ex) {
+            Logger.getLogger(OrderDialog.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+
+    private void addRowToTable(OrderItem item) {
+        Book book = bookMap.get(item.getBookId());
+        orderItemTableModel.addRow(new Object[]{
+            item.getBookId(),
+            book != null ? book.getTitle() : "Không tìm thấy",
+            formatCurrency(item.getUnitPrice()),
+            item.getQuantity(),
+            formatCurrency(item.getUnitPrice().multiply(new BigDecimal(item.getQuantity())))
+        });
+    }
+    
+    private void clearForm() {
+        currentOrder = new Order();
+        txtCustomerID.setText("");
+        lblOrderID.setText("Mã đơn hàng: (Tự động)");
+        txtOrderDate.setText(LocalDateTime.now().toString());
+        orderItems.clear();
+        orderItemTableModel.setRowCount(0);
+        updateTotalAmounts();
+        cbxCustomer.setSelectedIndex(0);
+        cbxBook.setSelectedIndex(0);
+        cbxPromotion.setSelectedIndex(0);
+        txtQuantity.setText("");
+        lblTotal.setText("Tổng tiền: 0 VND");
+        lblTotalDiscount.setText("Giảm giá: 0 VND");
+        lblActualTotal.setText("Thanh toán: 0 VND");
+        
+        btnSave.setEnabled(true);
+        btnConfirm.setEnabled(false);
+        btnCancel.setEnabled(false);
+    }
+    
+    private void validateQuantity() {
+        try {
+            int quantity = Integer.parseInt(txtQuantity.getText());
+            Book selectedBook = (Book) cbxBook.getSelectedItem();
+            if (selectedBook != null) {
+                int availableStock = inventoryDAO.getStockQuantity(selectedBook.getBookId());
+                if (quantity <= 0 || quantity > availableStock) {
+                    btnAdd.setEnabled(false);
+                    JOptionPane.showMessageDialog(this, "Số lượng không hợp lệ hoặc vượt quá tồn kho. Tồn kho hiện tại: " + availableStock, "Lỗi", JOptionPane.ERROR_MESSAGE);
+                } else {
+                    btnAdd.setEnabled(true);
+                }
+            }
+        } catch (NumberFormatException e) {
+            btnAdd.setEnabled(false);
+        }
+    }
+    
+    private void updateTotalAmounts() {
+        BigDecimal totalAmount = BigDecimal.ZERO;
+        for (OrderItem item : orderItems) {
+            totalAmount = totalAmount.add(item.getUnitPrice().multiply(new BigDecimal(item.getQuantity())));
+        }
+
+        BigDecimal discountAmount = BigDecimal.ZERO;
+        Promotion selectedPromotion = (Promotion) cbxPromotion.getSelectedItem();
+        if (selectedPromotion != null && selectedPromotion.isActive() && promotionDAO.isPromotionActive(selectedPromotion.getPromotionId(), LocalDate.now())) {
+            BigDecimal discountPercentage = selectedPromotion.getDiscountPercentage();
+            discountAmount = totalAmount.multiply(discountPercentage.divide(new BigDecimal(100)));
+        }
+
+        BigDecimal actualAmount = totalAmount.subtract(discountAmount);
+
+        lblTotal.setText("Tổng tiền: " + formatCurrency(totalAmount));
+        lblTotalDiscount.setText("Giảm giá: " + formatCurrency(discountAmount));
+        lblActualTotal.setText("Thanh toán: " + formatCurrency(actualAmount));
+    }
+    
+    private String formatCurrency(BigDecimal amount) {
+        NumberFormat currencyFormat = NumberFormat.getCurrencyInstance(new Locale("vi", "VN"));
+        return currencyFormat.format(amount);
+    }
+    
+    private void btnAddActionPerformed(java.awt.event.ActionEvent evt) {                                     
+        try {
+            Book selectedBook = (Book) cbxBook.getSelectedItem();
+            int quantity = Integer.parseInt(txtQuantity.getText());
+
+            if (selectedBook == null || quantity <= 0) {
+                JOptionPane.showMessageDialog(this, "Vui lòng chọn sách và nhập số lượng hợp lệ.", "Lỗi", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+
+            if (quantity > inventoryDAO.getStockQuantity(selectedBook.getBookId())) {
+                 JOptionPane.showMessageDialog(this, "Số lượng vượt quá tồn kho.", "Lỗi tồn kho", JOptionPane.ERROR_MESSAGE);
+                 return;
             }
             
-            JOptionPane.showMessageDialog(this, "Đơn hàng đã được thanh toán thành công!", "Thành công", JOptionPane.INFORMATION_MESSAGE);
-            this.orderCreatedSuccessfully = true; // Đặt cờ thành true khi thanh toán thành công
-            this.dispose();
+            OrderItem existingItem = orderItems.stream()
+                    .filter(item -> item.getBookId() == selectedBook.getBookId())
+                    .findFirst()
+                    .orElse(null);
 
-        } catch (SQLException ex) {
-            LOGGER.log(Level.SEVERE, "Lỗi khi xử lý thanh toán", ex);
-            this.orderCreatedSuccessfully = false;
-            JOptionPane.showMessageDialog(this, "Lỗi khi xử lý thanh toán: " + ex.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
+            if (existingItem != null) {
+                existingItem.setQuantity(existingItem.getQuantity() + quantity);
+                for (int i = 0; i < orderItemTableModel.getRowCount(); i++) {
+                    if (orderItemTableModel.getValueAt(i, 0).equals(selectedBook.getBookId())) {
+                        orderItemTableModel.setValueAt(existingItem.getQuantity(), i, 3);
+                        orderItemTableModel.setValueAt(formatCurrency(existingItem.getUnitPrice().multiply(new BigDecimal(existingItem.getQuantity()))), i, 4);
+                        break;
+                    }
+                }
+            } else {
+                OrderItem newItem = new OrderItem();
+                newItem.setBookId(selectedBook.getBookId());
+                newItem.setQuantity(quantity);
+                newItem.setUnitPrice(selectedBook.getPrice());
+                orderItems.add(newItem);
+                addRowToTable(newItem);
+            }
+            
+            updateTotalAmounts();
+            
+        } catch (NumberFormatException ex) {
+            JOptionPane.showMessageDialog(this, "Số lượng không hợp lệ hoặc lỗi cơ sở dữ liệu.", "Lỗi", JOptionPane.ERROR_MESSAGE);
+            Logger.getLogger(OrderDialog.class.getName()).log(Level.SEVERE, null, ex);
         }
-    }
+    }                                    
 
-    // Phương thức để khởi tạo logic cho panel phương thức thanh toán
-    private void initPaymentMethodPanelLogic() {
-        // Lấy CardLayout từ pnPaymentDetails đã được initComponents() tạo
-        paymentCardLayout = (CardLayout) pnPaymentDetails.getLayout();
-
-        // Đảm bảo card "CASH" được hiển thị mặc định khi dialog mở
-        paymentCardLayout.show(pnPaymentDetails, "card2"); // "card2" là tên card cho pnCash
-
-        // Thiết lập hình ảnh QR Code
-        lblQRCode.setIcon(getQRCodeImage());
-    }
-
-    // Phương thức giả định để lấy hình ảnh QR code
-    private ImageIcon getQRCodeImage() {
-        // Trong một ứng dụng thực tế, bạn sẽ tạo mã QR từ thông tin tài khoản ngân hàng.
-        // Ví dụ: "Ngân hàng: ABC, STK: 123456, Tên: Nguyen Van A, Số tiền: [totalAmount]"
-        // Sử dụng thư viện như ZXing để tạo mã QR từ chuỗi này.
-        // Ở đây, chúng ta sẽ sử dụng một placeholder đơn giản.
-        // Đảm bảo URL này có thể truy cập được hoặc thay thế bằng hình ảnh QR cục bộ
-        String imageUrl = "https://media.istockphoto.com/id/1095468748/vi/vec-to/m%C3%A3-qr-m%E1%BA%ABu-m%C3%A3-v%E1%BA%A1ch-hi%E1%BB%87n-%C4%91%E1%BA%A1i-vector-tr%E1%BB%ABu-t%C6%B0%E1%BB%A3ng-%C4%91%E1%BB%83-qu%C3%A9t-%C4%91i%E1%BB%87n-tho%E1%BA%A1i-th%C3%B4ng-minh-b%E1%BB%8B-c%C3%B4-l%E1%BA%ADp-tr%C3%AAn.jpg?s=612x612&w=0&k=20&c=nCjpoa8qW4lREJGqVCQZsWcrKGOcKKuy5RSsSVzqlL8=zz";
-        try {
-            ImageIcon qrIcon = new ImageIcon(new java.net.URL(imageUrl));
-            Image image = qrIcon.getImage();
-            Image scaledImage = image.getScaledInstance(150, 150, Image.SCALE_SMOOTH);
-            return new ImageIcon(scaledImage);
-        } catch (Exception e) {
-            LOGGER.log(Level.SEVERE, "Lỗi khi tải hình ảnh QR Code: " + e.getMessage(), e);
-            return null;
-        }
-    }
-    
     @SuppressWarnings("unchecked")
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
-        java.awt.GridBagConstraints gridBagConstraints;
 
-        pnContent = new javax.swing.JPanel();
+        jPanel1 = new javax.swing.JPanel();
+        jLabel4 = new javax.swing.JLabel();
+        jLabel5 = new javax.swing.JLabel();
+        jLabel6 = new javax.swing.JLabel();
+        cbxBook = new javax.swing.JComboBox<>();
+        txtQuantity = new javax.swing.JTextField();
+        btnAdd = new javax.swing.JButton();
         pnBookSelection = new javax.swing.JPanel();
         lblBook = new javax.swing.JLabel();
-        cbBook = new javax.swing.JComboBox<>();
-        txtQuantity = new javax.swing.JTextField();
-        btnAddBook = new javax.swing.JButton();
-        btnDeleteBook = new javax.swing.JButton();
-        tblCart = new javax.swing.JTable();
         jLabel1 = new javax.swing.JLabel();
-        pnPayment = new javax.swing.JPanel();
+        jLabel2 = new javax.swing.JLabel();
+        txtOrderDate = new javax.swing.JTextField();
+        jLabel3 = new javax.swing.JLabel();
+        lblStatus = new javax.swing.JLabel();
+        cbxCustomer = new javax.swing.JComboBox<>();
+        jLabel7 = new javax.swing.JLabel();
+        cbxPromotion = new javax.swing.JComboBox<>();
+        txtCustomerID = new javax.swing.JTextField();
+        txtPromotion = new javax.swing.JTextField();
+        jLabel9 = new javax.swing.JLabel();
+        jLabel10 = new javax.swing.JLabel();
         lblOrderID = new javax.swing.JLabel();
-        cbPaymentMethod = new javax.swing.JComboBox<>();
-        txtCustomerId = new javax.swing.JTextField();
-        lblCustomerMoney = new javax.swing.JLabel();
-        txtCustomerMoney = new javax.swing.JTextField();
-        lblChangeMoney = new javax.swing.JLabel();
+        jScrollPane1 = new javax.swing.JScrollPane();
+        tblProductsInOrder = new javax.swing.JTable();
+        btnDelete = new javax.swing.JButton();
+        jButton2 = new javax.swing.JButton();
+        jLabel8 = new javax.swing.JLabel();
         lblTotal = new javax.swing.JLabel();
-        lblCustomerId = new javax.swing.JLabel();
-        lblOrderIdValue = new javax.swing.JLabel();
-        lblTotalValue = new javax.swing.JLabel();
-        lblChangeMoneyValue = new javax.swing.JLabel();
-        lblPaymentMethod = new javax.swing.JLabel();
-        pnPaymentDetails = new javax.swing.JPanel();
-        pnCash = new javax.swing.JPanel();
-        lblCustomerMoney1 = new javax.swing.JLabel();
-        txtCustomerMoney1 = new javax.swing.JTextField();
-        lblChangeMoney1 = new javax.swing.JLabel();
-        lblChangeMoneyValue1 = new javax.swing.JLabel();
-        pnTransfer = new javax.swing.JPanel();
-        lblTitleScan = new javax.swing.JLabel();
-        lblQRCode = new javax.swing.JLabel();
-        pnButton = new javax.swing.JPanel();
-        btnPay = new javax.swing.JButton();
+        lblTotalPrice = new javax.swing.JLabel();
+        lblTotalDiscount = new javax.swing.JLabel();
+        btnConfirm = new javax.swing.JButton();
         btnCancel = new javax.swing.JButton();
+        jLabel11 = new javax.swing.JLabel();
+        lblActualTotal = new javax.swing.JLabel();
+        btnSave = new javax.swing.JButton();
+        btnRefresh = new javax.swing.JButton();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
         setTitle("CREATE NEW ORDER");
@@ -395,67 +361,150 @@ public class OrderDialog extends javax.swing.JDialog {
         setPreferredSize(new java.awt.Dimension(800, 600));
         setResizable(false);
 
-        pnContent.setPreferredSize(new java.awt.Dimension(500, 400));
-        pnContent.setLayout(new java.awt.BorderLayout());
+        jPanel1.setBackground(new java.awt.Color(51, 51, 51));
 
-        pnBookSelection.setBorder(javax.swing.BorderFactory.createTitledBorder("Choose Book"));
+        jLabel4.setText("ADD PRODUCT TO ORDER: ");
+
+        jLabel5.setText("Book: ");
+
+        jLabel6.setText("Quantity: ");
+
+        cbxBook.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "Item 1", "Item 2", "Item 3", "Item 4" }));
+
+        btnAdd.setText("ADD");
+
+        javax.swing.GroupLayout jPanel1Layout = new javax.swing.GroupLayout(jPanel1);
+        jPanel1.setLayout(jPanel1Layout);
+        jPanel1Layout.setHorizontalGroup(
+            jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(jPanel1Layout.createSequentialGroup()
+                .addGap(76, 76, 76)
+                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(jLabel4)
+                    .addGroup(jPanel1Layout.createSequentialGroup()
+                        .addComponent(jLabel5)
+                        .addGap(35, 35, 35)
+                        .addComponent(cbxBook, javax.swing.GroupLayout.PREFERRED_SIZE, 219, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addGap(36, 36, 36)
+                        .addComponent(jLabel6)
+                        .addGap(18, 18, 18)
+                        .addComponent(txtQuantity, javax.swing.GroupLayout.PREFERRED_SIZE, 219, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addGap(37, 37, 37)
+                        .addComponent(btnAdd)))
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+        );
+        jPanel1Layout.setVerticalGroup(
+            jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(jPanel1Layout.createSequentialGroup()
+                .addContainerGap()
+                .addComponent(jLabel4)
+                .addGap(18, 18, 18)
+                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(jLabel5)
+                    .addComponent(cbxBook, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(jLabel6)
+                    .addComponent(txtQuantity, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(btnAdd))
+                .addContainerGap(41, Short.MAX_VALUE))
+        );
+
+        pnBookSelection.setBorder(javax.swing.BorderFactory.createTitledBorder(""));
         pnBookSelection.setPreferredSize(new java.awt.Dimension(500, 250));
-        pnBookSelection.setLayout(new java.awt.GridBagLayout());
 
-        lblBook.setText("BOOK");
-        gridBagConstraints = new java.awt.GridBagConstraints();
-        gridBagConstraints.gridx = 0;
-        gridBagConstraints.gridy = 0;
-        gridBagConstraints.anchor = java.awt.GridBagConstraints.WEST;
-        gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
-        pnBookSelection.add(lblBook, gridBagConstraints);
+        lblBook.setText("Order ID: ");
 
-        cbBook.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "Item 1", "Item 2", "Item 3", "Item 4" }));
-        gridBagConstraints = new java.awt.GridBagConstraints();
-        gridBagConstraints.gridx = 2;
-        gridBagConstraints.gridy = 0;
-        gridBagConstraints.gridwidth = 3;
-        gridBagConstraints.fill = java.awt.GridBagConstraints.HORIZONTAL;
-        gridBagConstraints.weightx = 0.1;
-        gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
-        pnBookSelection.add(cbBook, gridBagConstraints);
+        jLabel1.setText("Customer ID: ");
 
-        txtQuantity.setColumns(20);
-        txtQuantity.setText("1");
-        gridBagConstraints = new java.awt.GridBagConstraints();
-        gridBagConstraints.gridx = 2;
-        gridBagConstraints.gridy = 2;
-        gridBagConstraints.gridheight = 2;
-        gridBagConstraints.fill = java.awt.GridBagConstraints.HORIZONTAL;
-        gridBagConstraints.weightx = 1.0;
-        gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
-        pnBookSelection.add(txtQuantity, gridBagConstraints);
+        jLabel2.setText("Date Create: ");
 
-        btnAddBook.setText("ADD");
-        btnAddBook.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                btnAddBookActionPerformed(evt);
-            }
-        });
-        gridBagConstraints = new java.awt.GridBagConstraints();
-        gridBagConstraints.gridx = 4;
-        gridBagConstraints.gridy = 2;
-        gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
-        pnBookSelection.add(btnAddBook, gridBagConstraints);
+        jLabel3.setText("Status: ");
 
-        btnDeleteBook.setText("DELETE");
-        btnDeleteBook.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                btnDeleteBookActionPerformed(evt);
-            }
-        });
-        gridBagConstraints = new java.awt.GridBagConstraints();
-        gridBagConstraints.gridx = 6;
-        gridBagConstraints.gridy = 2;
-        gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
-        pnBookSelection.add(btnDeleteBook, gridBagConstraints);
+        lblStatus.setText("Waiting...");
 
-        tblCart.setModel(new javax.swing.table.DefaultTableModel(
+        jLabel7.setText("Promotion ID: ");
+
+        jLabel9.setText("Customer: ");
+
+        jLabel10.setText("Promotion: ");
+
+        lblOrderID.setText("AUTO GENERATE");
+
+        javax.swing.GroupLayout pnBookSelectionLayout = new javax.swing.GroupLayout(pnBookSelection);
+        pnBookSelection.setLayout(pnBookSelectionLayout);
+        pnBookSelectionLayout.setHorizontalGroup(
+            pnBookSelectionLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(pnBookSelectionLayout.createSequentialGroup()
+                .addGap(23, 23, 23)
+                .addGroup(pnBookSelectionLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(jLabel7)
+                    .addGroup(pnBookSelectionLayout.createSequentialGroup()
+                        .addGroup(pnBookSelectionLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addComponent(jLabel2, javax.swing.GroupLayout.PREFERRED_SIZE, 70, javax.swing.GroupLayout.PREFERRED_SIZE)
+                            .addComponent(jLabel1)
+                            .addComponent(lblBook))
+                        .addGap(34, 34, 34)
+                        .addGroup(pnBookSelectionLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                            .addComponent(txtOrderDate, javax.swing.GroupLayout.DEFAULT_SIZE, 186, Short.MAX_VALUE)
+                            .addComponent(txtCustomerID)
+                            .addComponent(txtPromotion, javax.swing.GroupLayout.DEFAULT_SIZE, 186, Short.MAX_VALUE)
+                            .addComponent(lblOrderID, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                        .addGap(62, 62, 62)
+                        .addGroup(pnBookSelectionLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addGroup(pnBookSelectionLayout.createSequentialGroup()
+                                .addComponent(jLabel3, javax.swing.GroupLayout.PREFERRED_SIZE, 70, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addGap(18, 18, 18)
+                                .addComponent(lblStatus, javax.swing.GroupLayout.PREFERRED_SIZE, 836, javax.swing.GroupLayout.PREFERRED_SIZE))
+                            .addGroup(pnBookSelectionLayout.createSequentialGroup()
+                                .addGroup(pnBookSelectionLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                    .addComponent(jLabel9)
+                                    .addComponent(jLabel10, javax.swing.GroupLayout.PREFERRED_SIZE, 62, javax.swing.GroupLayout.PREFERRED_SIZE))
+                                .addGap(54, 54, 54)
+                                .addGroup(pnBookSelectionLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                                    .addComponent(cbxCustomer, 0, 256, Short.MAX_VALUE)
+                                    .addComponent(cbxPromotion, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))))))
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+        );
+        pnBookSelectionLayout.setVerticalGroup(
+            pnBookSelectionLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(pnBookSelectionLayout.createSequentialGroup()
+                .addGroup(pnBookSelectionLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(pnBookSelectionLayout.createSequentialGroup()
+                        .addGap(37, 37, 37)
+                        .addGroup(pnBookSelectionLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                            .addComponent(jLabel3)
+                            .addComponent(lblStatus))
+                        .addGap(18, 18, 18))
+                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, pnBookSelectionLayout.createSequentialGroup()
+                        .addGap(16, 16, 16)
+                        .addGroup(pnBookSelectionLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                            .addComponent(lblBook)
+                            .addComponent(lblOrderID))
+                        .addGap(18, 18, 18)))
+                .addGroup(pnBookSelectionLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(pnBookSelectionLayout.createSequentialGroup()
+                        .addGroup(pnBookSelectionLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                            .addComponent(txtOrderDate, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                            .addComponent(jLabel2))
+                        .addGap(31, 31, 31)
+                        .addGroup(pnBookSelectionLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                            .addComponent(txtCustomerID, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                            .addComponent(jLabel9)
+                            .addComponent(jLabel1)))
+                    .addComponent(cbxCustomer, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addGroup(pnBookSelectionLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(pnBookSelectionLayout.createSequentialGroup()
+                        .addGap(17, 17, 17)
+                        .addGroup(pnBookSelectionLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                            .addComponent(jLabel7)
+                            .addComponent(txtPromotion, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                            .addComponent(jLabel10)))
+                    .addGroup(pnBookSelectionLayout.createSequentialGroup()
+                        .addGap(18, 18, 18)
+                        .addComponent(cbxPromotion, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                .addContainerGap(40, Short.MAX_VALUE))
+        );
+
+        tblProductsInOrder.setModel(new javax.swing.table.DefaultTableModel(
             new Object [][] {
                 {null, null, null, null},
                 {null, null, null, null},
@@ -466,213 +515,31 @@ public class OrderDialog extends javax.swing.JDialog {
                 "Title 1", "Title 2", "Title 3", "Title 4"
             }
         ));
-        gridBagConstraints = new java.awt.GridBagConstraints();
-        gridBagConstraints.gridx = 0;
-        gridBagConstraints.gridy = 4;
-        gridBagConstraints.gridwidth = 7;
-        gridBagConstraints.fill = java.awt.GridBagConstraints.BOTH;
-        gridBagConstraints.weightx = 1.0;
-        gridBagConstraints.weighty = 1.0;
-        gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
-        pnBookSelection.add(tblCart, gridBagConstraints);
+        jScrollPane1.setViewportView(tblProductsInOrder);
 
-        jLabel1.setText("QUANTITY: ");
-        gridBagConstraints = new java.awt.GridBagConstraints();
-        gridBagConstraints.gridx = 0;
-        gridBagConstraints.gridy = 2;
-        gridBagConstraints.anchor = java.awt.GridBagConstraints.WEST;
-        gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
-        pnBookSelection.add(jLabel1, gridBagConstraints);
-
-        pnContent.add(pnBookSelection, java.awt.BorderLayout.NORTH);
-
-        pnPayment.setBorder(javax.swing.BorderFactory.createTitledBorder("PAY"));
-        pnPayment.setMinimumSize(new java.awt.Dimension(700, 500));
-        pnPayment.setPreferredSize(new java.awt.Dimension(500, 400));
-        pnPayment.setLayout(new java.awt.GridBagLayout());
-
-        lblOrderID.setFont(new java.awt.Font("Segoe UI", 1, 14)); // NOI18N
-        lblOrderID.setText("ORDER ID: ");
-        gridBagConstraints = new java.awt.GridBagConstraints();
-        gridBagConstraints.gridx = 0;
-        gridBagConstraints.gridy = 0;
-        gridBagConstraints.gridwidth = 4;
-        gridBagConstraints.anchor = java.awt.GridBagConstraints.WEST;
-        gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
-        pnPayment.add(lblOrderID, gridBagConstraints);
-
-        cbPaymentMethod.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "CASH", "TRANSFER", " " }));
-        gridBagConstraints = new java.awt.GridBagConstraints();
-        gridBagConstraints.gridx = 1;
-        gridBagConstraints.gridy = 5;
-        gridBagConstraints.fill = java.awt.GridBagConstraints.HORIZONTAL;
-        gridBagConstraints.weightx = 1.0;
-        gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
-        pnPayment.add(cbPaymentMethod, gridBagConstraints);
-
-        txtCustomerId.setColumns(15);
-        txtCustomerId.addActionListener(new java.awt.event.ActionListener() {
+        btnDelete.setText("DELETE");
+        btnDelete.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
-                txtCustomerIdActionPerformed(evt);
+                btnDeleteActionPerformed(evt);
             }
         });
-        gridBagConstraints = new java.awt.GridBagConstraints();
-        gridBagConstraints.gridx = 1;
-        gridBagConstraints.gridy = 1;
-        gridBagConstraints.fill = java.awt.GridBagConstraints.HORIZONTAL;
-        gridBagConstraints.weightx = 1.0;
-        gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
-        pnPayment.add(txtCustomerId, gridBagConstraints);
 
-        lblCustomerMoney.setFont(new java.awt.Font("Segoe UI", 1, 14)); // NOI18N
-        lblCustomerMoney.setText("CUSTOMER MONEY: ");
-        gridBagConstraints = new java.awt.GridBagConstraints();
-        gridBagConstraints.gridx = 0;
-        gridBagConstraints.gridy = 2;
-        gridBagConstraints.anchor = java.awt.GridBagConstraints.WEST;
-        gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
-        pnPayment.add(lblCustomerMoney, gridBagConstraints);
+        jButton2.setText("DELETE ALL");
 
-        txtCustomerMoney.addActionListener(new java.awt.event.ActionListener() {
+        jLabel8.setText("Discount: ");
+
+        lblTotal.setText("Total: ");
+
+        lblTotalPrice.setText("0 VND");
+
+        lblTotalDiscount.setText("0 VND");
+
+        btnConfirm.setText("CONFIRM");
+        btnConfirm.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
-                txtCustomerMoneyActionPerformed(evt);
+                btnConfirmActionPerformed(evt);
             }
         });
-        gridBagConstraints = new java.awt.GridBagConstraints();
-        gridBagConstraints.gridx = 1;
-        gridBagConstraints.gridy = 2;
-        gridBagConstraints.fill = java.awt.GridBagConstraints.HORIZONTAL;
-        gridBagConstraints.anchor = java.awt.GridBagConstraints.WEST;
-        gridBagConstraints.weightx = 1.0;
-        gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
-        pnPayment.add(txtCustomerMoney, gridBagConstraints);
-
-        lblChangeMoney.setFont(new java.awt.Font("Arial", 1, 14)); // NOI18N
-        lblChangeMoney.setText("CHANGE MONEY:");
-        gridBagConstraints = new java.awt.GridBagConstraints();
-        gridBagConstraints.gridx = 0;
-        gridBagConstraints.gridy = 4;
-        gridBagConstraints.anchor = java.awt.GridBagConstraints.WEST;
-        gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
-        pnPayment.add(lblChangeMoney, gridBagConstraints);
-
-        lblTotal.setFont(new java.awt.Font("Arial", 1, 14)); // NOI18N
-        lblTotal.setForeground(new java.awt.Color(255, 51, 51));
-        lblTotal.setText("TOTAL MONEY:");
-        gridBagConstraints = new java.awt.GridBagConstraints();
-        gridBagConstraints.gridx = 0;
-        gridBagConstraints.gridy = 3;
-        gridBagConstraints.anchor = java.awt.GridBagConstraints.WEST;
-        gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
-        pnPayment.add(lblTotal, gridBagConstraints);
-
-        lblCustomerId.setFont(new java.awt.Font("Arial", 1, 14)); // NOI18N
-        lblCustomerId.setText("CUSTOMER ID: ");
-        gridBagConstraints = new java.awt.GridBagConstraints();
-        gridBagConstraints.gridx = 0;
-        gridBagConstraints.gridy = 1;
-        gridBagConstraints.anchor = java.awt.GridBagConstraints.WEST;
-        gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
-        pnPayment.add(lblCustomerId, gridBagConstraints);
-
-        lblOrderIdValue.setFont(new java.awt.Font("Arial", 1, 14)); // NOI18N
-        lblOrderIdValue.setHorizontalAlignment(javax.swing.SwingConstants.RIGHT);
-        lblOrderIdValue.setText("AUTO GENERATE");
-        gridBagConstraints = new java.awt.GridBagConstraints();
-        gridBagConstraints.gridx = 1;
-        gridBagConstraints.gridy = 0;
-        gridBagConstraints.fill = java.awt.GridBagConstraints.HORIZONTAL;
-        gridBagConstraints.anchor = java.awt.GridBagConstraints.EAST;
-        gridBagConstraints.weightx = 1.0;
-        gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
-        pnPayment.add(lblOrderIdValue, gridBagConstraints);
-
-        lblTotalValue.setHorizontalAlignment(javax.swing.SwingConstants.RIGHT);
-        lblTotalValue.setText("0 VND");
-        gridBagConstraints = new java.awt.GridBagConstraints();
-        gridBagConstraints.gridx = 1;
-        gridBagConstraints.gridy = 3;
-        gridBagConstraints.fill = java.awt.GridBagConstraints.HORIZONTAL;
-        gridBagConstraints.anchor = java.awt.GridBagConstraints.EAST;
-        gridBagConstraints.weightx = 1.0;
-        gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
-        pnPayment.add(lblTotalValue, gridBagConstraints);
-
-        lblChangeMoneyValue.setHorizontalAlignment(javax.swing.SwingConstants.RIGHT);
-        lblChangeMoneyValue.setText("0 VND");
-        gridBagConstraints = new java.awt.GridBagConstraints();
-        gridBagConstraints.gridx = 1;
-        gridBagConstraints.gridy = 4;
-        gridBagConstraints.fill = java.awt.GridBagConstraints.HORIZONTAL;
-        gridBagConstraints.anchor = java.awt.GridBagConstraints.EAST;
-        gridBagConstraints.weightx = 1.0;
-        gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
-        pnPayment.add(lblChangeMoneyValue, gridBagConstraints);
-
-        lblPaymentMethod.setFont(new java.awt.Font("Arial", 1, 14)); // NOI18N
-        lblPaymentMethod.setText("PAYMEND METHOD: ");
-        gridBagConstraints = new java.awt.GridBagConstraints();
-        gridBagConstraints.gridx = 0;
-        gridBagConstraints.gridy = 5;
-        gridBagConstraints.anchor = java.awt.GridBagConstraints.WEST;
-        gridBagConstraints.insets = new java.awt.Insets(5, 5, 5, 5);
-        pnPayment.add(lblPaymentMethod, gridBagConstraints);
-
-        pnPaymentDetails.setLayout(new java.awt.CardLayout());
-
-        pnCash.setLayout(new java.awt.FlowLayout(java.awt.FlowLayout.LEFT));
-
-        lblCustomerMoney1.setFont(new java.awt.Font("Segoe UI", 1, 14)); // NOI18N
-        lblCustomerMoney1.setText("CUSTOMER MONEY: ");
-        pnCash.add(lblCustomerMoney1);
-
-        txtCustomerMoney1.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                txtCustomerMoney1ActionPerformed(evt);
-            }
-        });
-        pnCash.add(txtCustomerMoney1);
-
-        lblChangeMoney1.setFont(new java.awt.Font("Arial", 1, 14)); // NOI18N
-        lblChangeMoney1.setText("CHANGE MONEY:");
-        pnCash.add(lblChangeMoney1);
-
-        lblChangeMoneyValue1.setHorizontalAlignment(javax.swing.SwingConstants.RIGHT);
-        lblChangeMoneyValue1.setText("0 VND");
-        pnCash.add(lblChangeMoneyValue1);
-
-        pnPaymentDetails.add(pnCash, "card2");
-
-        pnTransfer.setLayout(new java.awt.BorderLayout());
-
-        lblTitleScan.setFont(new java.awt.Font("Arial", 1, 14)); // NOI18N
-        lblTitleScan.setText("SCAN QR TO TRANSFER");
-        pnTransfer.add(lblTitleScan, java.awt.BorderLayout.NORTH);
-        pnTransfer.add(lblQRCode, java.awt.BorderLayout.CENTER);
-
-        pnPaymentDetails.add(pnTransfer, "card3");
-
-        gridBagConstraints = new java.awt.GridBagConstraints();
-        gridBagConstraints.gridwidth = 2;
-        gridBagConstraints.gridheight = java.awt.GridBagConstraints.RELATIVE;
-        gridBagConstraints.fill = java.awt.GridBagConstraints.BOTH;
-        gridBagConstraints.weightx = 1.0;
-        gridBagConstraints.weighty = 1.0;
-        pnPayment.add(pnPaymentDetails, gridBagConstraints);
-
-        pnContent.add(pnPayment, java.awt.BorderLayout.CENTER);
-
-        getContentPane().add(pnContent, java.awt.BorderLayout.CENTER);
-
-        pnButton.setLayout(new java.awt.FlowLayout(java.awt.FlowLayout.RIGHT, 10, 10));
-
-        btnPay.setText("PAY");
-        btnPay.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                btnPayActionPerformed(evt);
-            }
-        });
-        pnButton.add(btnPay);
 
         btnCancel.setText("CANCEL");
         btnCancel.addActionListener(new java.awt.event.ActionListener() {
@@ -680,9 +547,103 @@ public class OrderDialog extends javax.swing.JDialog {
                 btnCancelActionPerformed(evt);
             }
         });
-        pnButton.add(btnCancel);
 
-        getContentPane().add(pnButton, java.awt.BorderLayout.SOUTH);
+        jLabel11.setText("PAY: ");
+
+        lblActualTotal.setText("0 VND");
+
+        btnSave.setText("SAVE");
+        btnSave.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                btnSaveActionPerformed(evt);
+            }
+        });
+
+        btnRefresh.setText("REFRESH");
+        btnRefresh.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                btnRefreshActionPerformed(evt);
+            }
+        });
+
+        javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
+        getContentPane().setLayout(layout);
+        layout.setHorizontalGroup(
+            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(layout.createSequentialGroup()
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
+                    .addComponent(pnBookSelection, javax.swing.GroupLayout.PREFERRED_SIZE, 999, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addGroup(javax.swing.GroupLayout.Alignment.LEADING, layout.createSequentialGroup()
+                        .addContainerGap()
+                        .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
+                .addGap(0, 0, Short.MAX_VALUE))
+            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
+                        .addComponent(btnDelete)
+                        .addGap(57, 57, 57)
+                        .addComponent(jButton2)
+                        .addGap(102, 102, 102))
+                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
+                        .addComponent(btnSave)
+                        .addGap(72, 72, 72)
+                        .addComponent(btnConfirm)
+                        .addGap(46, 46, 46)
+                        .addComponent(btnCancel)
+                        .addGap(38, 38, 38)
+                        .addComponent(btnRefresh)
+                        .addGap(86, 86, 86))))
+            .addGroup(layout.createSequentialGroup()
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(layout.createSequentialGroup()
+                        .addGap(63, 63, 63)
+                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addComponent(lblTotal, javax.swing.GroupLayout.PREFERRED_SIZE, 37, javax.swing.GroupLayout.PREFERRED_SIZE)
+                            .addComponent(jLabel8)
+                            .addComponent(jLabel11, javax.swing.GroupLayout.PREFERRED_SIZE, 43, javax.swing.GroupLayout.PREFERRED_SIZE))
+                        .addGap(53, 53, 53)
+                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addComponent(lblTotalPrice, javax.swing.GroupLayout.PREFERRED_SIZE, 37, javax.swing.GroupLayout.PREFERRED_SIZE)
+                            .addComponent(lblTotalDiscount, javax.swing.GroupLayout.PREFERRED_SIZE, 46, javax.swing.GroupLayout.PREFERRED_SIZE)
+                            .addComponent(lblActualTotal, javax.swing.GroupLayout.PREFERRED_SIZE, 43, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                    .addGroup(layout.createSequentialGroup()
+                        .addContainerGap()
+                        .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 993, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+        );
+        layout.setVerticalGroup(
+            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
+                .addComponent(pnBookSelection, javax.swing.GroupLayout.PREFERRED_SIZE, 240, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(18, 18, 18)
+                .addComponent(jPanel1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(39, 39, 39)
+                .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 154, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                    .addComponent(jButton2, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(btnDelete, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                .addGap(45, 45, 45)
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(lblTotal)
+                    .addComponent(lblTotalPrice))
+                .addGap(40, 40, 40)
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(jLabel8)
+                    .addComponent(lblTotalDiscount))
+                .addGap(35, 35, 35)
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(jLabel11)
+                    .addComponent(lblActualTotal))
+                .addGap(18, 18, 18)
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(btnConfirm)
+                    .addComponent(btnCancel)
+                    .addComponent(btnSave)
+                    .addComponent(btnRefresh))
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+        );
 
         pack();
     }// </editor-fold>//GEN-END:initComponents
@@ -700,36 +661,97 @@ public class OrderDialog extends javax.swing.JDialog {
         
     }//GEN-LAST:event_btnTimKiemActionPerformed
 
-    private void btnAddBookActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnAddBookActionPerformed
-        addBookToCart();
-    }//GEN-LAST:event_btnAddBookActionPerformed
-
-    private void btnDeleteBookActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnDeleteBookActionPerformed
-       deleteBookFromCart();
-
-    }//GEN-LAST:event_btnDeleteBookActionPerformed
-
-    private void btnPayActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnPayActionPerformed
+    private void btnSaveActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnSaveActionPerformed
         // TODO add your handling code here:
-        performPayment();
-    }//GEN-LAST:event_btnPayActionPerformed
+        Customer selectedCustomer = (Customer) cbxCustomer.getSelectedItem();
+        Promotion selectedPromotion = (Promotion) cbxPromotion.getSelectedItem();
+        
+        if (selectedCustomer == null || orderItems.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Vui lòng chọn khách hàng và thêm ít nhất một mặt hàng.", "Lỗi", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        currentOrder.setCustomerId(selectedCustomer.getCustomerId());
+        currentOrder.setOrderDate(LocalDateTime.now());
+        currentOrder.setStatus("Đang chờ xác nhận");
+        currentOrder.setTotalAmount(BigDecimal.ZERO);
+        currentOrder.setTotalDiscount(BigDecimal.ZERO);
+        currentOrder.setActualAmount(BigDecimal.ZERO);
+        if (selectedPromotion != null) {
+            currentOrder.setPromotionId(selectedPromotion.getPromotionId());
+        }
+
+        boolean success = orderDAO.addOrder(currentOrder);
+        if (success) {
+            for (OrderItem item : orderItems) {
+                item.setOrderId(currentOrder.getOrderId());
+                orderItemDAO.addOrderItem(item);
+            }
+            
+            JOptionPane.showMessageDialog(this, "Thêm đơn hàng thành công!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
+            this.dispose();
+        } else {
+            JOptionPane.showMessageDialog(this, "Lỗi khi thêm đơn hàng.", "Lỗi", JOptionPane.ERROR_MESSAGE);
+        }
+    }//GEN-LAST:event_btnSaveActionPerformed
 
     private void btnCancelActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnCancelActionPerformed
-
-        dispose();
+        // TODO add your handling code here:
+        int cancelResult = JOptionPane.showConfirmDialog(this, "Bạn có chắc chắn muốn hủy đơn hàng này?", "Hủy đơn hàng", JOptionPane.YES_NO_OPTION);
+        if (cancelResult == JOptionPane.YES_OPTION) {
+            currentOrder.setStatus("Đã hủy");
+            orderDAO.updateOrder(currentOrder);
+            JOptionPane.showMessageDialog(this, "Đơn hàng đã được hủy thành công.", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
+            this.dispose();
+        }
     }//GEN-LAST:event_btnCancelActionPerformed
 
-    private void txtCustomerMoneyActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_txtCustomerMoneyActionPerformed
+    private void btnRefreshActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnRefreshActionPerformed
         // TODO add your handling code here:
-    }//GEN-LAST:event_txtCustomerMoneyActionPerformed
+        clearForm();
+    }//GEN-LAST:event_btnRefreshActionPerformed
 
-    private void txtCustomerIdActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_txtCustomerIdActionPerformed
+    private void btnConfirmActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnConfirmActionPerformed
         // TODO add your handling code here:
-    }//GEN-LAST:event_txtCustomerIdActionPerformed
+        if (currentOrder == null || currentOrder.getOrderId() == 0) {
+            JOptionPane.showMessageDialog(this, "Không có đơn hàng để xác nhận.", "Lỗi", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
 
-    private void txtCustomerMoney1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_txtCustomerMoney1ActionPerformed
-        // TODO add your handling code here:
-    }//GEN-LAST:event_txtCustomerMoney1ActionPerformed
+        int confirmResult = JOptionPane.showConfirmDialog(this, "Bạn có chắc chắn muốn xác nhận đơn hàng này? Thao tác này không thể hoàn tác.", "Xác nhận đơn hàng", JOptionPane.YES_NO_OPTION);
+        if (confirmResult == JOptionPane.YES_OPTION) {
+            currentOrder.setStatus("Hoàn tất");
+            BigDecimal totalAmount = BigDecimal.ZERO;
+            for (OrderItem item : orderItems) {
+                totalAmount = totalAmount.add(item.getUnitPrice().multiply(new BigDecimal(item.getQuantity())));
+            }
+            BigDecimal discountAmount = BigDecimal.ZERO;
+            Promotion selectedPromotion = (Promotion) cbxPromotion.getSelectedItem();
+            if (selectedPromotion != null && selectedPromotion.isActive() && promotionDAO.isPromotionActive(selectedPromotion.getPromotionId(), LocalDate.now())) {
+                BigDecimal discountPercentage = selectedPromotion.getDiscountPercentage();
+                discountAmount = totalAmount.multiply(discountPercentage.divide(new BigDecimal(100)));
+            }
+            BigDecimal actualAmount = totalAmount.subtract(discountAmount);
+            currentOrder.setTotalAmount(totalAmount);
+            currentOrder.setTotalDiscount(discountAmount);
+            currentOrder.setActualAmount(actualAmount);
+            orderDAO.updateOrder(currentOrder);
+            paymentDAO.createPayment(currentOrder.getOrderId(), currentOrder.getActualAmount(), "Tiền mặt");
+            for (OrderItem item : orderItems) {
+                try {
+                    inventoryDAO.decreaseInventoryQuantity(item.getBookId(), item.getQuantity());
+                } catch (SQLException ex) {
+                    Logger.getLogger(OrderDialog.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+            JOptionPane.showMessageDialog(this, "Đơn hàng đã được xác nhận thành công!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
+            this.dispose();
+        }
+    }//GEN-LAST:event_btnConfirmActionPerformed
+
+    private void btnDeleteActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnDeleteActionPerformed
+        // TODO add your handling code here:zz
+    }//GEN-LAST:event_btnDeleteActionPerformed
 
     /**
      * @param args the command line arguments
@@ -764,7 +786,7 @@ public class OrderDialog extends javax.swing.JDialog {
         /* Create and display the dialog */
         java.awt.EventQueue.invokeLater(new Runnable() {
             public void run() {
-                OrderDialog dialog = new OrderDialog(new javax.swing.JFrame(), true);
+                OrderDialog dialog = new OrderDialog(new javax.swing.JFrame(), true, null);
                 dialog.addWindowListener(new java.awt.event.WindowAdapter() {
                     @Override
                     public void windowClosing(java.awt.event.WindowEvent e) {
@@ -777,39 +799,41 @@ public class OrderDialog extends javax.swing.JDialog {
     }
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
-    private javax.swing.JButton btnAddBook;
+    private javax.swing.JButton btnAdd;
     private javax.swing.JButton btnCancel;
-    private javax.swing.JButton btnDeleteBook;
-    private javax.swing.JButton btnPay;
-    private javax.swing.JComboBox<String> cbBook;
-    private javax.swing.JComboBox<String> cbPaymentMethod;
+    private javax.swing.JButton btnConfirm;
+    private javax.swing.JButton btnDelete;
+    private javax.swing.JButton btnRefresh;
+    private javax.swing.JButton btnSave;
+    private javax.swing.JComboBox<String> cbxBook;
+    private javax.swing.JComboBox<String> cbxCustomer;
+    private javax.swing.JComboBox<String> cbxPromotion;
+    private javax.swing.JButton jButton2;
     private javax.swing.JLabel jLabel1;
+    private javax.swing.JLabel jLabel10;
+    private javax.swing.JLabel jLabel11;
+    private javax.swing.JLabel jLabel2;
+    private javax.swing.JLabel jLabel3;
+    private javax.swing.JLabel jLabel4;
+    private javax.swing.JLabel jLabel5;
+    private javax.swing.JLabel jLabel6;
+    private javax.swing.JLabel jLabel7;
+    private javax.swing.JLabel jLabel8;
+    private javax.swing.JLabel jLabel9;
+    private javax.swing.JPanel jPanel1;
+    private javax.swing.JScrollPane jScrollPane1;
+    private javax.swing.JLabel lblActualTotal;
     private javax.swing.JLabel lblBook;
-    private javax.swing.JLabel lblChangeMoney;
-    private javax.swing.JLabel lblChangeMoney1;
-    private javax.swing.JLabel lblChangeMoneyValue;
-    private javax.swing.JLabel lblChangeMoneyValue1;
-    private javax.swing.JLabel lblCustomerId;
-    private javax.swing.JLabel lblCustomerMoney;
-    private javax.swing.JLabel lblCustomerMoney1;
     private javax.swing.JLabel lblOrderID;
-    private javax.swing.JLabel lblOrderIdValue;
-    private javax.swing.JLabel lblPaymentMethod;
-    private javax.swing.JLabel lblQRCode;
-    private javax.swing.JLabel lblTitleScan;
+    private javax.swing.JLabel lblStatus;
     private javax.swing.JLabel lblTotal;
-    private javax.swing.JLabel lblTotalValue;
+    private javax.swing.JLabel lblTotalDiscount;
+    private javax.swing.JLabel lblTotalPrice;
     private javax.swing.JPanel pnBookSelection;
-    private javax.swing.JPanel pnButton;
-    private javax.swing.JPanel pnCash;
-    private javax.swing.JPanel pnContent;
-    private javax.swing.JPanel pnPayment;
-    private javax.swing.JPanel pnPaymentDetails;
-    private javax.swing.JPanel pnTransfer;
-    private javax.swing.JTable tblCart;
-    private javax.swing.JTextField txtCustomerId;
-    private javax.swing.JTextField txtCustomerMoney;
-    private javax.swing.JTextField txtCustomerMoney1;
+    private javax.swing.JTable tblProductsInOrder;
+    private javax.swing.JTextField txtCustomerID;
+    private javax.swing.JTextField txtOrderDate;
+    private javax.swing.JTextField txtPromotion;
     private javax.swing.JTextField txtQuantity;
     // End of variables declaration//GEN-END:variables
 

@@ -54,6 +54,9 @@ public class InventoryManagementDialog extends javax.swing.JDialog {
 
         if (currentInventory == null) {
             this.setTitle("Add New Inventory");
+            lblBookNameDisplay.setText("");
+            lblWarehouseNameDisplay.setText("");
+            txtInventoryId.setText("AUTO GENERATE");
             txtInventoryId.setEnabled(false);
         } else {
             this.setTitle("Edit Inventory");
@@ -209,6 +212,7 @@ public class InventoryManagementDialog extends javax.swing.JDialog {
                             ));
                         }
                         JOptionPane.showMessageDialog(this, "Update inventory complete!", "Complete", JOptionPane.INFORMATION_MESSAGE);
+                        this.dispose();
                     }
             }
         } catch (NumberFormatException e) {

@@ -34,36 +34,38 @@ public class StockTransactionDAO {
     public boolean addStockTransaction(StockTransaction transaction) {
         // SQL query để chèn dữ liệu. Sử dụng IDENTITY cho transaction_id nên không cần chèn.
         String sql = "INSERT INTO dbo.stock_transactions (book_id, from_warehouse_id, to_warehouse_id, quantity, transaction_type, transaction_date) VALUES (?, ?, ?, ?, ?, ?)";
-        boolean success = false;
         try (Connection conn = DBConnection.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+             PreparedStatement stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
 
-            pstmt.setInt(1, transaction.getBookId());
-            // from_warehouse_id có thể là NULL, kiểm tra và set accordingly.
+            stmt.setInt(1, transaction.getBookId());
             if (transaction.getFromWarehouseId() != null) {
-                pstmt.setInt(2, transaction.getFromWarehouseId());
+                stmt.setInt(2, transaction.getFromWarehouseId());
             } else {
-                pstmt.setNull(2, java.sql.Types.INTEGER);
+                stmt.setNull(2, java.sql.Types.INTEGER);
             }
-            // to_warehouse_id có thể là NULL, kiểm tra và set accordingly.
             if (transaction.getToWarehouseId() != null) {
-                pstmt.setInt(3, transaction.getToWarehouseId());
+                stmt.setInt(3, transaction.getToWarehouseId());
             } else {
-                pstmt.setNull(3, java.sql.Types.INTEGER);
+                stmt.setNull(3, java.sql.Types.INTEGER);
             }
-            pstmt.setInt(4, transaction.getQuantity());
-            pstmt.setString(5, transaction.getTransactionType());
-            // transaction_date có giá trị mặc định là GETDATE(), nhưng vẫn nên set nếu có.
-            pstmt.setTimestamp(6, Timestamp.valueOf(transaction.getTransactionDate()));
+            stmt.setInt(4, transaction.getQuantity());
+            stmt.setString(5, transaction.getTransactionType());
+            stmt.setTimestamp(6, Timestamp.valueOf(LocalDateTime.now()));
 
-            int rowsAffected = pstmt.executeUpdate();
-            if (rowsAffected > 0) {
-                success = true;
+            int affectedRows = stmt.executeUpdate();
+            if (affectedRows > 0) {
+                try (ResultSet generatedKeys = stmt.getGeneratedKeys()) {
+                    if (generatedKeys.next()) {
+                        transaction.setTransactionId(generatedKeys.getInt(1));
+                    }
+                }
+                return true;
             }
+
         } catch (SQLException e) {
-            LOGGER.log(Level.SEVERE, "Lỗi khi thêm giao dịch kho: " + transaction, e);
+            LOGGER.log(Level.SEVERE, "Lỗi khi thêm giao dịch kho mới", e);
         }
-        return success;
+        return false;
     }
 
     /**
@@ -99,9 +101,8 @@ public class StockTransactionDAO {
         List<StockTransaction> transactions = new ArrayList<>();
         String sql = "SELECT * FROM dbo.stock_transactions ORDER BY transaction_date DESC";
         try (Connection conn = DBConnection.getConnection();
-             Statement stmt = conn.createStatement();
-             ResultSet rs = stmt.executeQuery(sql)) {
-
+             PreparedStatement stmt = conn.prepareStatement(sql);
+             ResultSet rs = stmt.executeQuery()) {
             while (rs.next()) {
                 transactions.add(mapStockTransactionFromResultSet(rs));
             }
@@ -170,6 +171,38 @@ public class StockTransactionDAO {
             LOGGER.log(Level.SEVERE, "Lỗi khi xóa giao dịch kho với ID: " + transactionId, e);
         }
         return success;
+    }
+    
+    
+    public void addStockTransaction(int bookId, int quantity, String reason) throws SQLException {
+        String sql = "INSERT INTO stock_transactions (book_id, from_warehouse_id, to_warehouse_id, quantity, transaction_type, transaction_date, notes) VALUES (?, ?, ?, ?, ?, ?, ?)";
+
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            // Giả định hoàn kho là một giao dịch nhập kho, nên to_warehouse_id sẽ có giá trị
+            // và from_warehouse_id là null. Ta sẽ cần một id kho cụ thể ở đây.
+            // Để đơn giản, tôi sẽ đặt from_warehouse_id là null và to_warehouse_id là 1 (ví dụ).
+            // Bạn có thể thay đổi logic này cho phù hợp với hệ thống của mình.
+            
+            pstmt.setInt(1, bookId);
+            pstmt.setNull(2, java.sql.Types.INTEGER); // from_warehouse_id is null for a return transaction
+            pstmt.setInt(3, 1); // Cần có ID kho cụ thể, ở đây là ví dụ
+            pstmt.setInt(4, quantity);
+            pstmt.setString(5, "RETURN"); // transaction_type
+            pstmt.setTimestamp(6, Timestamp.valueOf(LocalDateTime.now()));
+            pstmt.setString(7, reason);
+
+            int affectedRows = pstmt.executeUpdate();
+            if (affectedRows > 0) {
+                LOGGER.log(Level.INFO, "Đã thêm thành công giao dịch kho cho sách có ID: {0}", bookId);
+            } else {
+                LOGGER.log(Level.WARNING, "Thêm giao dịch kho thất bại cho sách có ID: {0}", bookId);
+            }
+        } catch (SQLException ex) {
+            LOGGER.log(Level.SEVERE, "Lỗi khi thêm giao dịch kho", ex);
+            throw ex;
+        }
     }
 
     /**

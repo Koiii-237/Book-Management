@@ -31,21 +31,32 @@ public class CustomerDAO {
      * @return true nếu thêm thành công, false nếu có lỗi xảy ra.
      */
     public boolean addCustomer(Customer customer) {
+        // Câu lệnh INSERT không bao gồm cột customer_id vì nó là khóa tự động tăng
         String sql = "INSERT INTO dbo.customers (full_name, email, phone, address) VALUES (?, ?, ?, ?)";
         try (Connection conn = DBConnection.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
+             // Sử dụng Statement.RETURN_GENERATED_KEYS để lấy ID vừa được tạo
+             PreparedStatement stmt = conn.prepareStatement(sql, PreparedStatement.RETURN_GENERATED_KEYS)) {
 
             stmt.setString(1, customer.getFullName());
             stmt.setString(2, customer.getEmail());
             stmt.setString(3, customer.getPhone());
             stmt.setString(4, customer.getAddress());
 
-            int rowsAffected = stmt.executeUpdate();
-            return rowsAffected > 0;
+            int affectedRows = stmt.executeUpdate();
+
+            if (affectedRows > 0) {
+                // Lấy ID tự động tăng và cập nhật cho đối tượng customer
+                try (ResultSet generatedKeys = stmt.getGeneratedKeys()) {
+                    if (generatedKeys.next()) {
+                        customer.setCustomerId(generatedKeys.getInt(1));
+                    }
+                }
+                return true;
+            }
         } catch (SQLException e) {
             LOGGER.log(Level.SEVERE, "Lỗi khi thêm khách hàng mới: " + customer.getFullName(), e);
-            return false;
         }
+        return false;
     }
 
     /**
